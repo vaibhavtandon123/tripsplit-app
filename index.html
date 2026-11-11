@@ -1094,7 +1094,8 @@ function renderActivityTab(){
   var head='<div class="top"><h1>Activity</h1></div>';
   if(!S.trip){shell('activity','<div class="center"><div style="font-size:38px">📋</div><div class="muted">Open a trip to see its activity.</div><button class="btn" id="gt" style="max-width:200px">Go to trips</button></div>',head);$('#gt').onclick=renderTrips;return;}
   shell('activity','<div id="actList"><div class="center"><div class="spin"></div></div></div>',head);
-  call('api_activity',{token:S.token,tripId:S.trip.tripId}).then(function(list){if(!list.length){$('#actList').innerHTML='<div class="center">No activity yet</div>';return;}var h='';list.forEach(function(a){h+='<div class="exp"><div class="avatar">'+esc((a.actorName||'?').charAt(0).toUpperCase())+'</div><div class="mid"><b>'+esc(a.actorName)+'</b><div class="meta">'+esc(a.detail)+'</div><div class="meta">'+sdt(a.at)+'</div></div></div>';});$('#actList').innerHTML=h;}).catch(function(e){$('#actList').innerHTML='<div class="center">'+esc(e)+'</div>';});
+  var pById={};(S.data&&S.data.members||[]).forEach(function(m){if(m.userId&&m.photoId)pById[m.userId]=m.photoId;});
+  call('api_activity',{token:S.token,tripId:S.trip.tripId}).then(function(list){if(!list.length){$('#actList').innerHTML='<div class="center">No activity yet</div>';return;}var h='';list.forEach(function(a){var pid=pById[a.actorId];var av=pid?'<div class="avatar" style="background-image:url(/img?id='+encodeURIComponent(pid)+');background-size:cover;background-position:center">':'<div class="avatar">'+esc((a.actorName||'?').charAt(0).toUpperCase());h+='<div class="exp">'+av+'</div><div class="mid"><b>'+esc(a.actorName)+'</b><div class="meta">'+esc(a.detail)+'</div><div class="meta">'+sdt(a.at)+'</div></div></div>';});$('#actList').innerHTML=h;}).catch(function(e){$('#actList').innerHTML='<div class="center">'+esc(e)+'</div>';});
 }
 function renderAccount(){
   var u=S.user||{},theme=localStorage.getItem('tet_theme')||'light';

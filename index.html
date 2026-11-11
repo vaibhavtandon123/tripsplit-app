@@ -291,7 +291,7 @@ function paintTrips(list){
   });
   box.innerHTML=h;
   Array.prototype.forEach.call(box.querySelectorAll('.tripcard'),function(c){c.onclick=function(){openTrip(c.getAttribute('data-id'));};});
-  Array.prototype.forEach.call(box.querySelectorAll('[data-cover]'),function(c){call('api_image',c.getAttribute('data-cover')).then(function(src){if(src)c.style.backgroundImage='url('+src+')';});});
+  Array.prototype.forEach.call(box.querySelectorAll('[data-cover]'),function(c){c.style.backgroundImage='url(/img?id='+encodeURIComponent(c.getAttribute('data-cover'))+')';});
 }
 
 /* ---- Create / Join chooser (clean premium) ---- */
@@ -387,7 +387,7 @@ function renderDashboard(updating){
   $('#bk').onclick=renderTrips;$('#tripMenu').onclick=openTripMenu;
   if($('#settleBtn'))$('#settleBtn').onclick=openSettle;
   $('#allExp').onclick=openAllExpenses;$('#shareBtn').onclick=openShare;$('#addPpl').onclick=openPeople;$('#ticketBtn').onclick=openTripTickets;$('#locBtn').onclick=openLocations;
-  if(t.coverId)call('api_image',t.coverId).then(function(src){if(src&&$('#coverImg'))$('#coverImg').style.backgroundImage='url('+src+')';});
+  if(t.coverId&&$('#coverImg'))$('#coverImg').style.backgroundImage='url(/img?id='+encodeURIComponent(t.coverId)+')';
   var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted;}).slice(0,5);
   if(!act.length)mini.innerHTML='<div class="muted" style="padding:10px 2px">No expenses yet. Tap ＋ to add one.</div>';
   else act.forEach(function(e){mini.appendChild(expRow(e));});
@@ -594,7 +594,7 @@ function openExpenseDetail(e){
   else if(d.trip.locked)html+='<div class="lockbanner">Trip is locked.</div>';
   else html+='<div class="banner">Only people in this expense can edit it.</div>';
   sheetModal('Expense',html,function(){
-    if(e.receiptId)call('api_image',e.receiptId).then(function(src){if(src&&$('#rcpt'))$('#rcpt').src=src;});
+    if(e.receiptId&&$('#rcpt'))$('#rcpt').src='/img?id='+encodeURIComponent(e.receiptId);
     if($('#editBtn'))$('#editBtn').onclick=function(){closeModal();openAddExpense(e);};
     if($('#restoreBtn'))$('#restoreBtn').onclick=function(){loading(true);call('api_restoreExpense',{token:S.token,expenseId:e.expenseId}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Restored');}).catch(function(er){loading(false);toast(er);});};
   });
@@ -957,7 +957,7 @@ function renderAccount(){
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
     '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px" id="verLine">TripSplit</div>';
   shell('account',body,head);
-  if(u.photoId)call('api_image',u.photoId).then(function(src){if(src){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url('+src+')';}});
+  if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
   $('#logoutBtn').onclick=function(){if(confirm('Log out?'))logout();};
   if($('#adminBtn'))$('#adminBtn').onclick=openAdmin;

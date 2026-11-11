@@ -64,13 +64,13 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='7'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','7'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='8'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','8'); } }
   return ss;
 }
 
 var SCHEMA={
   Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin'],
-  Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel'],
+  Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel','coverPreset'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
   Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON'],
   Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt'],
@@ -252,7 +252,7 @@ function api_createTrip(p){
   appendRow_('Trips',{tripId:id,name:p.name.trim(),code:tripCode_(),currency:p.currency||'INR',budget:Number(p.budget)||0,
     createdBy:me.userId,createdAt:now_(),startDate:p.startDate||'',endDate:p.endDate||'',status:'active',
     cats:JSON.stringify(p.cats&&p.cats.length?p.cats:DEFAULT_CATS),coverId:p.cover?saveCover_(p.cover,id):'',locked:'',
-    catBudgets:JSON.stringify(p.catBudgets||{}),destination:(p.destination||'').trim(),monthLabel:(p.monthLabel||'').trim()});
+    catBudgets:JSON.stringify(p.catBudgets||{}),destination:(p.destination||'').trim(),monthLabel:(p.monthLabel||'').trim(),coverPreset:(p.coverPreset||'').trim()});
   addMemberRow_(id,me.userId,me.fullName,false,'','','');
   logAct_(id,me,'created','Created trip "'+p.name.trim()+'"');
   backup_();
@@ -269,6 +269,7 @@ function api_updateTrip(p){
   if(p.catBudgets!=null) patch.catBudgets=JSON.stringify(p.catBudgets||{});
   if(p.cats!=null) patch.cats=JSON.stringify(p.cats);
   if(p.cover) patch.coverId=saveCover_(p.cover,trip.tripId);
+  if(p.coverPreset!==undefined) patch.coverPreset=String(p.coverPreset||'').trim();
   updateWhere_('Trips','tripId',trip.tripId,patch);
   logAct_(trip.tripId,me,'edit','Edited trip details');
   backup_();
@@ -343,7 +344,7 @@ function api_myTrips(token){
   return readAll_('Trips').filter(function(t){return t.status!=='deleted' && (admin||myIds[t.tripId]);}).map(function(t){
     var te=exp.filter(function(e){return e.tripId===t.tripId&&!e.deleted;});
     var total=te.reduce(function(s,e){return s+Number(e.amount);},0);
-    return {tripId:t.tripId,name:t.name,code:t.code,currency:t.currency,total:total,coverId:t.coverId||'',
+    return {tripId:t.tripId,name:t.name,code:t.code,currency:t.currency,total:total,coverId:t.coverId||'',coverPreset:t.coverPreset||'',
       locked:!!t.locked,members:members.filter(function(m){return m.tripId===t.tripId;}).length,createdAt:dStr_(t.createdAt),status:t.status};
   }).sort(function(a,b){return a.createdAt<b.createdAt?1:-1;});
 }
@@ -560,7 +561,7 @@ function getTripData_(tripId,me){
   return {
     trip:{tripId:trip.tripId,name:String(trip.name||''),code:String(trip.code||''),currency:trip.currency,budget:Number(trip.budget),
       createdBy:trip.createdBy,status:trip.status,startDate:dStr_(trip.startDate),endDate:dStr_(trip.endDate),cats:cats,
-      coverId:trip.coverId||'',locked:!!trip.locked,catBudgets:catBudgets,destination:String(trip.destination||''),monthLabel:monthStr_(trip.monthLabel),
+      coverId:trip.coverId||'',coverPreset:trip.coverPreset||'',locked:!!trip.locked,catBudgets:catBudgets,destination:String(trip.destination||''),monthLabel:monthStr_(trip.monthLabel),
       isCreator:trip.createdBy===me.userId,isAdmin:isAdmin_(me),webUrl:getWebAppUrl()},
     me:{userId:me.userId,memberId:(findMyMember_(tripId,me.userId)||{}).memberId||''},
     members:mem,expenses:expenses,payments:payments,

@@ -136,12 +136,14 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 .cover{height:120px;border-radius:16px;background:linear-gradient(135deg,var(--mint),var(--mint-d));background-size:cover;background-position:center;margin-bottom:12px;display:flex;align-items:flex-end;padding:12px;color:#fff;font-weight:700;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.4);}
 .tcard2{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin:14px 0;box-shadow:0 8px 24px rgba(17,20,24,.06);}
 .tcover{height:112px;background-size:cover;background-position:center;position:relative;padding:14px;display:flex;align-items:flex-end;}
-.tname{color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 8px rgba(0,0,0,.4);letter-spacing:-.3px;line-height:1.2;}
+.tname{color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 8px rgba(0,0,0,.4);letter-spacing:-.3px;line-height:1.2;position:relative;}
+.covmotif{position:absolute;top:8px;right:12px;font-size:58px;opacity:.3;pointer-events:none;line-height:1;z-index:0;}
 .tlock{position:absolute;right:12px;top:12px;background:rgba(255,255,255,.92);color:#444;font-size:12px;font-weight:700;padding:4px 10px;border-radius:11px;}
 .tfoot{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;}
 .tppl{font-size:13px;color:var(--sub);font-weight:600;}
 .ttot{text-align:right;}.ttot span{display:block;font-size:11px;color:var(--sub);font-weight:600;}.ttot b{font-size:18px;font-weight:800;color:var(--ink);}
-.hero{margin:-16px -20px 0;padding:max(18px,env(safe-area-inset-top)) 20px 60px;position:relative;}
+.hero{margin:-16px -20px 0;padding:max(18px,env(safe-area-inset-top)) 20px 60px;position:relative;overflow:hidden;}
+.hero .htop,.hero h1,.hero .hsub{position:relative;z-index:1;}
 .hero .htop{display:flex;align-items:center;justify-content:space-between;}
 .hero .hback{color:#fff;font-size:15px;font-weight:700;opacity:.96;background:none;border:none;padding:0;}
 .hero .hmenu{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;border:none;font-size:18px;}
@@ -196,6 +198,15 @@ var CATICON={Food:'🍽️',Travel:'🚕',Stay:'🏨',Shopping:'🛍️',Tickets
 function catIcon(c){return CATICON[c]||'📦';}
 var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
 function tripGradient(key){var s=String(key||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return TGRADS[n%TGRADS.length];}
+var DEST_CAT=[
+ ['beach',['goa','andaman','pondicherry','gokarna','varkala','kovalam','diu','alleppey','puri','visakhapatnam','vizag','maldives','bali','phuket','krabi','mauritius','seychelles','daman','havelock'],'linear-gradient(135deg,#2CC5D9,#3C7FE8)','🏖️'],
+ ['hills',['manali','shimla','mussoorie','nainital','ooty','munnar','darjeeling','gangtok','leh','ladakh','spiti','auli','kasol','dharamshala','mcleod','coorg','chikmagalur','kodaikanal','mount abu','lonavala','pahalgam','gulmarg','kathmandu','pokhara','alps','patnitop','dalhousie','sikkim'],'linear-gradient(135deg,#2BB37A,#2B7FC9)','🏔️'],
+ ['heritage',['jaipur','udaipur','jodhpur','jaisalmer','agra','varanasi','hampi','khajuraho','konark','madurai','mathura','ayodhya','amritsar','bikaner','mysuru','mysore','ujjain','pushkar','rameswaram','tirupati','kedarnath','haridwar','rishikesh','gwalior','orchha','chittorgarh','ajmer','bhubaneswar'],'linear-gradient(135deg,#E8A13A,#D9643C)','🕌'],
+ ['nature',['jim corbett','corbett','ranthambore','kaziranga','wayanad','shillong','cherrapunji','gir','sundarbans','jungle','safari','tadoba','bandhavgarh'],'linear-gradient(135deg,#2FA86B,#6FB03A)','🌴'],
+ ['city',['mumbai','delhi','bengaluru','bangalore','hyderabad','chennai','kolkata','pune','ahmedabad','dubai','singapore','bangkok','kuala lumpur','london','paris','rome','istanbul','baku','abu dhabi','hong kong','zurich','raipur','bilaspur','indore','bhopal','lucknow','nagpur','surat','chandigarh'],'linear-gradient(135deg,#6D5BEF,#A05BE8)','🏙️']
+];
+function destCat(name){var s=String(name||'').toLowerCase();for(var i=0;i<DEST_CAT.length;i++){var w=DEST_CAT[i][1];for(var j=0;j<w.length;j++){if(s.indexOf(w[j])>=0)return DEST_CAT[i];}}return null;}
+function coverFor(key,name){var c=destCat(name);return c?{bg:c[2],motif:c[3]}:{bg:tripGradient(key),motif:'✈️'};}
 var MCOLORS=['#19B47E','#5B8DEF','#E8577B','#8E63E6','#F0975B','#2BB1C9','#E8A13A','#4FB596'];
 function memberColor(id){var s=String(id||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return MCOLORS[n%MCOLORS.length];}
 var SPLITMETA={equal:['🟰','Split equally','Pick who’s in. Everyone pays the same.'],custom:['🔢','Exact amounts','Type exactly how much each owes.'],percent:['％','By percentage','Enter a % split that’s fair.'],shares:['👨‍👩‍👧','By shares','Family of 3 → 3 shares · kid → ½ share.'],adjust:['➕➖','Equal + adjust','Split equal, then add extra for someone.']};
@@ -349,11 +360,11 @@ function paintTrips(list){
   var box=$('#triplist');if(!box)return;
   if(!list.length){box.innerHTML='<div class="center"><div style="font-size:40px">🧳</div><div>No trips yet</div><button class="btn" id="n1" style="max-width:220px">Create a trip</button><button class="btn out sm" id="j1" style="max-width:220px">Join with a code</button></div>';$('#n1').onclick=openNewTrip;$('#j1').onclick=openJoinTrip;return;}
   var h='';list.forEach(function(t){
-    var grad=tripGradient(t.tripId||t.name);
+    var cf=coverFor(t.tripId||t.name,t.name);
     var cov=t.coverId?' data-cover="'+t.coverId+'"':'';
     var lock=t.locked?'<span class="tlock">🔒 Locked</span>':'';
     h+='<div class="tcard2" data-id="'+t.tripId+'">\
-      <div class="tcover"'+cov+' style="background:'+grad+'">'+lock+'<div class="tname">'+esc(t.name)+'</div></div>\
+      <div class="tcover"'+cov+' style="background:'+cf.bg+'"><span class="covmotif">'+cf.motif+'</span>'+lock+'<div class="tname">'+esc(t.name)+'</div></div>\
       <div class="tfoot"><div class="tppl">👥 '+t.members+' '+(t.members==1?'person':'people')+'</div>\
       <div class="ttot"><span>Total spent</span><b>'+money0(t.total,t.currency)+'</b></div></div></div>';
   });
@@ -432,7 +443,9 @@ function renderDashboard(updating){
   var head='';
   var myBal=(d.balances.filter(function(b){return b.memberId===d.me.memberId;})[0]||{}).balance||0;
   var settleTotal=d.settle.reduce(function(s,x){return s+x.amount;},0);
-  var hero='<div class="hero" id="heroBox" style="background:'+tripGradient(t.tripId||t.name)+'">\
+  var hcf=coverFor(t.tripId||t.name,t.name);
+  var hero='<div class="hero" id="heroBox" style="background:'+hcf.bg+'">\
+    <span class="covmotif" style="font-size:90px;top:-6px;right:6px">'+hcf.motif+'</span>\
     <div class="htop"><button class="hback" id="bk">‹ Trips</button><button class="hmenu" id="tripMenu">⋯</button></div>\
     <h1>'+esc(t.name)+'</h1><div class="hsub">'+d.members.length+' '+(d.members.length==1?'person':'people')+'</div></div>';
   var balCard='<div class="balc"><div class="bl">'+(myBal>=0?'You are owed':'You owe')+'</div>\

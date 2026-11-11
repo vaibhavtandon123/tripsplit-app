@@ -93,14 +93,20 @@ input[type=date]{-webkit-appearance:none;appearance:none;min-height:48px;line-he
 .sheet .chk{flex-wrap:wrap;}
 .sheet .chk .nm{min-width:40%;}
 @keyframes up{from{transform:translateY(100%);}to{transform:translateY(0);}}
-.sheet h3{margin:4px 0 12px;font-size:17px;}
-.chk{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--line);}
-.chk input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;}
-.chk .nm{flex:1;}
-.chk .amt{width:92px;}
-.seg{display:flex;background:var(--soft);border-radius:12px;padding:3px;margin:8px 0;}
-.seg button{flex:1;border:none;background:none;padding:9px;border-radius:9px;font-weight:600;font-family:inherit;color:var(--sub);font-size:13.5px;}
-.seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
+.sheet h3{margin:2px 0 14px;font-size:22px;font-weight:800;letter-spacing:-.4px;}
+.chk{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid var(--line);}
+.chk input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;}
+.chk .nm{flex:1;font-weight:600;}
+.chk .amt{width:96px;text-align:right;}
+.chk .sav{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
+input[type=checkbox]{accent-color:var(--mint);}
+.seg{display:flex;background:var(--soft);border-radius:13px;padding:4px;margin:10px 0;gap:3px;}
+.seg button{flex:1;border:none;background:none;padding:10px 4px;border-radius:10px;font-weight:700;font-family:inherit;color:var(--sub);font-size:13.5px;}
+.seg button.on{background:linear-gradient(135deg,var(--mint),var(--mint-d));color:#fff;box-shadow:0 4px 12px rgba(14,143,99,.3);}
+.splithint{text-align:center;padding:6px 20px 2px;}
+.splithint .hi{font-size:30px;}
+.splithint .ht{font-size:16px;font-weight:800;color:var(--ink);margin-top:2px;}
+.splithint .hs{font-size:12.5px;color:var(--sub);font-weight:500;margin-top:2px;line-height:1.35;}
 .center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:68%;gap:14px;color:var(--sub);}
 .avatar{width:38px;height:38px;border-radius:50%;background:var(--soft);object-fit:cover;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--mint);font-size:15px;background-size:cover;background-position:center;}
 .toast{position:absolute;bottom:88px;left:16px;right:16px;background:var(--ink);color:var(--bg);padding:13px 16px;border-radius:12px;font-size:14px;z-index:99;box-shadow:var(--shadow);text-align:center;}
@@ -169,6 +175,10 @@ var CATICON={Food:'🍽️',Travel:'🚕',Stay:'🏨',Shopping:'🛍️',Tickets
 function catIcon(c){return CATICON[c]||'📦';}
 var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
 function tripGradient(key){var s=String(key||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return TGRADS[n%TGRADS.length];}
+var MCOLORS=['#19B47E','#5B8DEF','#E8577B','#8E63E6','#F0975B','#2BB1C9','#E8A13A','#4FB596'];
+function memberColor(id){var s=String(id||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return MCOLORS[n%MCOLORS.length];}
+var SPLITMETA={equal:['🟰','Split equally','Pick who’s in. Everyone pays the same.'],custom:['🔢','Exact amounts','Type exactly how much each owes.'],percent:['％','By percentage','Enter a % split that’s fair.'],shares:['👨‍👩‍👧','By shares','Family of 3 → 3 shares · kid → ½ share.'],adjust:['➕➖','Equal + adjust','Split equal, then add extra for someone.']};
+function updateHint(type){var box=document.getElementById('splitHint');if(!box)return;var m=SPLITMETA[type]||SPLITMETA.equal;box.innerHTML='<div class="hi">'+m[0]+'</div><div class="ht">'+m[1]+'</div><div class="hs">'+m[2]+'</div>';}
 var CATWORDS=[['Food',['dinner','lunch','breakfast','food','restaurant','cafe','pizza','burger','meal','snack','khana','nashta','thali','dhaba','biryani','lassi','dessert','icecream','sweets','mithai']],['Tickets',['ticket','train','flight','irctc','boarding','pnr','railway','airport','indigo','vistara','spicejet','airline','bus ticket']],['Stay',['hotel','stay','resort','hostel','room','airbnb','lodge','guesthouse','oyo','homestay','villa','cottage','check-in','checkin']],['Travel',['taxi','cab','uber','ola','auto','rickshaw','bus','metro','travel','ride','transport','toll','parking','ferry','boat ride']],['Fuel',['fuel','petrol','diesel','cng','gas station']],['Drinks',['drinks','beer','bar','coffee','tea','chai','juice','wine','cocktail','pub','soda','water bottle']],['Shopping',['shopping','shop','mall','clothes','souvenir','market','gift','store']],['Activities',['activity','entry','museum','park','trek','tour','adventure','boating','safari','zoo','sightseeing','rafting','zipline','spa','game']]];
 function guessCat(desc){var s=(desc||'').toLowerCase();if(s.length<2)return '';for(var i=0;i<CATWORDS.length;i++){var w=CATWORDS[i][1];for(var j=0;j<w.length;j++){if(s.indexOf(w[j])>=0)return CATWORDS[i][0];}}return '';}
 function sdate(iso){try{return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});}catch(e){return'';}}
@@ -493,8 +503,9 @@ function openAddExpense(existing){
     <div class="field"><label>Paid by</label><select id="ePaid">'+payOpts+'</select>\
       <label style="margin-top:8px;font-size:13px;display:flex;align-items:center;gap:8px"><input type="checkbox" id="multiPay" style="width:18px;height:18px"'+(payerMulti?' checked':'')+'> More than one person paid</label>\
       <div id="payerBox" style="display:'+(payerMulti?'block':'none')+'"></div></div>\
-    <div class="seg" id="splitSeg"><button data-t="equal" class="'+(splitType==='equal'?'on':'')+'">Equal</button><button data-t="custom" class="'+(splitType==='custom'?'on':'')+'">Custom ₹</button><button data-t="percent" class="'+(splitType==='percent'?'on':'')+'">%</button></div>\
-    <label class="muted" style="margin-top:4px;display:block">Split between</label><div id="splitList"></div><div id="splitInfo" class="muted" style="margin:8px 2px"></div>\
+    <div class="splithint" id="splitHint"></div>\
+    <div class="seg" id="splitSeg"><button data-t="equal" class="'+(splitType==='equal'?'on':'')+'">=</button><button data-t="custom" class="'+(splitType==='custom'?'on':'')+'">1.23</button><button data-t="percent" class="'+(splitType==='percent'?'on':'')+'">%</button><button data-t="shares" class="'+(splitType==='shares'?'on':'')+'">|||</button><button data-t="adjust" class="'+(splitType==='adjust'?'on':'')+'">+/−</button></div>\
+    <label class="muted" style="margin-top:4px;display:block;font-weight:700">Split between</label><div id="splitList"></div><div id="splitInfo" class="muted" style="margin:8px 2px;font-weight:600"></div>\
     <div class="field"><label>Note (optional)</label><input id="eNote" placeholder="e.g. advance diya, baaki baad me" value="'+esc(ex?ex.note:'')+'"></div>\
     <div class="field"><label>Receipt photo (optional)</label><input id="eReceipt" type="file" accept="image/*"></div>\
     <button class="btn" id="saveExp">'+(ex?'Save changes':'Add expense')+'</button>'+(ex?'<button class="btn danger sm" id="delExp" style="margin-top:10px">Delete expense</button>':'');
@@ -510,10 +521,18 @@ function openAddExpense(existing){
       members.forEach(function(m){
         var on=!!state.selected[m.memberId];
         var kidTag=m.isKid?' <span class="pill">kid</span>':'';
-        var rowH='<div class="chk"><input type="checkbox" '+(on?'checked':'')+' data-m="'+m.memberId+'"><span class="nm">'+esc(m.name)+(m.isFamily?' <span class="pill">family</span>':'')+kidTag+'</span>';
+        var ini=(m.name||'?').trim().charAt(0).toUpperCase();
+        var av='<span class="sav" style="background:'+memberColor(m.memberId)+'">'+esc(ini)+'</span>';
+        var rowH='<div class="chk"><input type="checkbox" '+(on?'checked':'')+' data-m="'+m.memberId+'">'+av+'<span class="nm">'+esc(m.name)+(m.isFamily?' <span class="pill">family</span>':'')+kidTag+'</span>';
         if(state.type==='equal'&&m.isKid){
           var w=(state.custom[m.memberId]!=null)?state.custom[m.memberId]:(m.kidShare==='half'?0.5:m.kidShare==='none'?0:1);
           rowH+='<select data-kid="'+m.memberId+'" style="width:90px;padding:7px" '+(on?'':'disabled')+'><option value="1"'+(w==1?' selected':'')+'>Full</option><option value="0.5"'+(w==0.5?' selected':'')+'>Half</option><option value="0"'+(w==0?' selected':'')+'>None</option></select>';
+        } else if(state.type==='shares'){
+          var sv=(state.custom[m.memberId]!=null)?state.custom[m.memberId]:(m.isKid?0.5:1);
+          rowH+='<input class="amt" type="number" inputmode="decimal" placeholder="sh" data-amt="'+m.memberId+'" value="'+sv+'" '+(on?'':'disabled')+'>';
+        } else if(state.type==='adjust'){
+          var avl=(state.custom[m.memberId]!=null)?state.custom[m.memberId]:0;
+          rowH+='<input class="amt" type="number" inputmode="decimal" placeholder="+₹" data-amt="'+m.memberId+'" value="'+avl+'" '+(on?'':'disabled')+'>';
         } else if(state.type!=='equal'){
           rowH+='<input class="amt" type="number" inputmode="decimal" placeholder="'+(state.type==='percent'?'%':'₹')+'" data-amt="'+m.memberId+'" value="'+(state.custom[m.memberId]||'')+'" '+(on?'':'disabled')+'>';
         }
@@ -530,10 +549,13 @@ function openAddExpense(existing){
       var amt=Number($('#eAmt').value)||0,chosen=members.filter(function(m){return state.selected[m.memberId];}),info='';
       if(state.type==='equal')info=chosen.length?'Shared by '+chosen.length+' people':'Pick at least one person';
       else if(state.type==='percent'){var sum=chosen.reduce(function(s,m){return s+(Number(state.custom[m.memberId])||0);},0);info='Total '+sum.toFixed(0)+'% '+(Math.abs(sum-100)<0.5?'✓':'(must be 100%)');}
+      else if(state.type==='shares'){var W=chosen.reduce(function(s,m){var w=Number(state.custom[m.memberId]);if(!(w>=0))w=(m.isKid?0.5:1);return s+w;},0);info=W>0?(W+' total shares · '+money(amt/W,cur)+' per share'):'Give at least one share';}
+      else if(state.type==='adjust'){var sa=chosen.reduce(function(s,m){return s+(Number(state.custom[m.memberId])||0);},0);var base=chosen.length?(amt-sa)/chosen.length:0;info=chosen.length?('Base '+money(base,cur)+' each'+(sa?' + adjustments':'')):'Pick at least one person';}
       else{var s2=chosen.reduce(function(s,m){return s+(Number(state.custom[m.memberId])||0);},0);info='Entered '+money(s2,cur)+' of '+money(amt,cur)+' '+(Math.abs(s2-amt)<0.5?'✓':'(must match)');}
       $('#splitInfo').textContent=info;
     }
-    Array.prototype.forEach.call($('#splitSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#splitSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');state.type=b.getAttribute('data-t');if(state.type==='equal')state.custom={};renderSplit();};});
+    Array.prototype.forEach.call($('#splitSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#splitSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');state.type=b.getAttribute('data-t');state.custom={};updateHint(state.type);renderSplit();};});
+    updateHint(state.type);
     $('#eAmt').oninput=function(){updateInfo();renderPayers();};
     var catTouched=!!(ex&&ex.category);
     $('#eCat').onchange=function(e){catTouched=true;if(e.target.value==='__new'){var nc=prompt('New category name');if(nc){var o=document.createElement('option');o.text=nc;o.selected=true;$('#eCat').add(o,$('#eCat').options[$('#eCat').options.length-1]);}else $('#eCat').selectedIndex=0;}toggleStay();};
@@ -572,13 +594,15 @@ function openAddExpense(existing){
     if(ex&&$('#delExp'))$('#delExp').onclick=function(){if(!confirm('Delete this expense? Everyone in it will see it crossed out.'))return;loading(true);call('api_deleteExpense',{token:S.token,expenseId:ex.expenseId}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Deleted');}).catch(function(e){loading(false);toast(e);});};
   });
 }
+function fixRound(split,chosen,amt){var sum=0;chosen.forEach(function(m){sum+=split[m.memberId];});var diff=Math.round((amt-sum)*100)/100;if(diff&&chosen.length)split[chosen[0].memberId]=Math.round((split[chosen[0].memberId]+diff)*100)/100;}
 function buildSplit(state,members,amt){
   var chosen=members.filter(function(m){return state.selected[m.memberId];}),split={};
   if(!chosen.length)return null;
-  if(state.type==='equal'){chosen.forEach(function(m){var w=(state.custom[m.memberId]!=null)?Number(state.custom[m.memberId]):1;split[m.memberId]=w;});}
-  else if(state.type==='percent'){var sum=0;chosen.forEach(function(m){var v=Number(state.custom[m.memberId])||0;split[m.memberId]=v;sum+=v;});if(Math.abs(sum-100)>0.5)return 'Percentages must add up to 100%.';}
-  else{var s2=0;chosen.forEach(function(m){var v=Number(state.custom[m.memberId])||0;split[m.memberId]=v;s2+=v;});if(Math.abs(s2-amt)>0.5)return 'Custom amounts must add up to '+amt+'.';}
-  return split;
+  if(state.type==='equal'){chosen.forEach(function(m){var w=(state.custom[m.memberId]!=null)?Number(state.custom[m.memberId]):1;split[m.memberId]=w;});return {split:split,type:'equal'};}
+  if(state.type==='percent'){var sum=0;chosen.forEach(function(m){var v=Number(state.custom[m.memberId])||0;split[m.memberId]=v;sum+=v;});if(Math.abs(sum-100)>0.5)return 'Percentages must add up to 100%.';return {split:split,type:'percent'};}
+  if(state.type==='shares'){var W=0;chosen.forEach(function(m){var w=Number(state.custom[m.memberId]);if(!(w>=0))w=(m.isKid?0.5:1);state.custom[m.memberId]=w;W+=w;});if(W<=0)return 'Give at least one share.';chosen.forEach(function(m){split[m.memberId]=Math.round(amt*Number(state.custom[m.memberId])/W*100)/100;});fixRound(split,chosen,amt);return {split:split,type:'custom'};}
+  if(state.type==='adjust'){var sumAdj=0,adj={};chosen.forEach(function(m){var a=Number(state.custom[m.memberId])||0;adj[m.memberId]=a;sumAdj+=a;});var base=(amt-sumAdj)/chosen.length;chosen.forEach(function(m){split[m.memberId]=Math.round((base+adj[m.memberId])*100)/100;});fixRound(split,chosen,amt);return {split:split,type:'custom'};}
+  var s2=0;chosen.forEach(function(m){var v=Number(state.custom[m.memberId])||0;split[m.memberId]=v;s2+=v;});if(Math.abs(s2-amt)>0.5)return 'Custom amounts must add up to '+amt+'.';return {split:split,type:'custom'};
 }
 function buildPayers(pstate,members,amt,singlePayer){
   if(!$('#multiPay').checked){var o={};o[singlePayer]=amt;return o;}
@@ -593,10 +617,10 @@ function saveExpense(ex,state,pstate,members,cur){
   var desc=$('#eDesc').value.trim(),amt=Number($('#eAmt').value)||0,cat=$('#eCat').value;if(cat==='__new')cat='Other';
   var singlePayer=$('#ePaid').value,note=$('#eNote').value.trim(),spentOn=$('#eDate').value||todayStr();
   if(!desc)return toast('Enter a description');if(amt<=0)return toast('Enter an amount');
-  var split=buildSplit(state,members,amt);if(split===null)return toast('Pick at least one person');if(typeof split==='string')return toast(split);
+  var sp=buildSplit(state,members,amt);if(sp===null)return toast('Pick at least one person');if(typeof sp==='string')return toast(sp);
   var payers=buildPayers(pstate,members,amt,singlePayer);if(typeof payers==='string')return toast(payers);
   var stay=null;if(cat==='Stay'){var ci=$('#eCheckIn')&&$('#eCheckIn').value,co=$('#eCheckOut')&&$('#eCheckOut').value;if(ci&&co){var nn=Math.round((new Date(co)-new Date(ci))/86400000);if(nn<=0)return toast('Check-out should be after check-in');stay={checkIn:ci,checkOut:co,nights:nn};}}
-  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:state.type,split:split,payers:payers,note:note,spentOn:spentOn,stay:stay,clientTime:new Date().toISOString()};
+  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:sp.type,split:sp.split,payers:payers,note:note,spentOn:spentOn,stay:stay,clientTime:new Date().toISOString()};
   function send(receipt){
     payload.receipt=receipt||'';
     if(ex){payload.expenseId=ex.expenseId;loading(true);call('api_editExpense',payload).then(function(d){loading(false);closeModal();setData(d);renderDashboard();toast('Saved');}).catch(function(e){loading(false);toast(e);});}

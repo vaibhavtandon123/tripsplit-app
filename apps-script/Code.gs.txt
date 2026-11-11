@@ -64,12 +64,12 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='6'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','6'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='7'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','7'); } }
   return ss;
 }
 
 var SCHEMA={
-  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin'],
+  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin'],
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
   Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON'],
@@ -160,12 +160,16 @@ function api_signup(p){
   return api_login({username:u,password:p.password});
 }
 function api_login(p){
-  p=p||{}; var u=(p.username||'').trim().toLowerCase();
-  var user=readAll_('Users').filter(function(x){return String(x.username).toLowerCase()===u||String(x.email).toLowerCase()===u;})[0];
-  if(!user) throw 'No account with that username.';
+  p=p||{}; var u=(p.username||'').trim().toLowerCase(), uDigits=u.replace(/[^0-9]/g,'');
+  var user=readAll_('Users').filter(function(x){
+    return String(x.username).toLowerCase()===u
+      || String(x.email).toLowerCase()===u
+      || (uDigits.length>=10 && String(x.mobile||'').replace(/[^0-9]/g,'').slice(-10)===uDigits.slice(-10));
+  })[0];
+  if(!user) throw 'No account with that username, email or phone.';
   if(hash_(p.password,user.salt)!==user.passHash) throw 'Wrong password.';
   var token=newToken_(), exp=new Date(Date.now()+TOKEN_DAYS*864e5).toISOString();
-  updateWhere_('Users','userId',user.userId,{tokenHash:hash_(token,user.salt),tokenExp:exp});
+  updateWhere_('Users','userId',user.userId,{tokenHash:hash_(token,user.salt),tokenExp:exp,lastLogin:now_()});
   return {token:token,user:publicUser_(user)};
 }
 function userByToken_(token){
@@ -179,8 +183,32 @@ function userByToken_(token){
   }
   throw 'Please log in again.';
 }
-function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,isAdmin:isAdmin_(x)}; }
+function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,dob:x.dob||'',isAdmin:isAdmin_(x)}; }
+function api_updateProfile(p){
+  var me=userByToken_(p.token);
+  var patch={};
+  if(p.fullName!==undefined && String(p.fullName).trim()) patch.fullName=String(p.fullName).trim();
+  if(p.email!==undefined) patch.email=String(p.email||'').trim();
+  if(p.mobile!==undefined) patch.mobile=String(p.mobile||'').trim();
+  if(p.dob!==undefined) patch.dob=String(p.dob||'').trim();
+  if(p.photo){ patch.photoId=savePhoto_(p.photo,me.userId); }
+  updateWhere_('Users','userId',me.userId,patch);
+  return publicUser_(readAll_('Users').filter(function(x){return x.userId===me.userId;})[0]);
+}
 function api_me(token){ return publicUser_(userByToken_(token)); }
+function api_friends(p){
+  var me=userByToken_(p.token), members=readAll_('Members'), myTrips={};
+  members.forEach(function(m){ if(m.userId===me.userId) myTrips[m.tripId]=1; });
+  var users=readAll_('Users'), uById={}; users.forEach(function(u){uById[u.userId]=u;});
+  var seen={}, out=[];
+  members.forEach(function(m){
+    if(!myTrips[m.tripId] || !m.userId || m.userId===me.userId || seen[m.userId]) return;
+    seen[m.userId]=1; var u=uById[m.userId]||{};
+    out.push({userId:m.userId,name:u.fullName||m.displayName,username:u.username||'',photoId:u.photoId||'',mobile:u.mobile||''});
+  });
+  out.sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+  return out;
+}
 function isAdmin_(me){ return String(me.username).toLowerCase()===ADMIN_USERNAME || String(me.isAdmin).toUpperCase()==='TRUE'; }
 
 function api_forgotPassword(p){
@@ -711,7 +739,8 @@ function backup_(force){
  * ========================================================== */
 function api_adminOverview(token){
   var me=userByToken_(token); if(!isAdmin_(me)) throw 'Admins only.';
-  return {users:readAll_('Users').map(function(u){return {userId:u.userId,fullName:u.fullName,username:u.username,email:u.email,mobile:u.mobile,createdAt:dStr_(u.createdAt)};}),
+  var allMembers=readAll_('Members');
+  return {users:readAll_('Users').map(function(u){return {userId:u.userId,fullName:u.fullName,username:u.username,email:u.email,mobile:u.mobile,dob:u.dob||'',photoId:u.photoId||'',isAdmin:isAdmin_(u),createdAt:dStr_(u.createdAt),lastLogin:dStr_(u.lastLogin),tripCount:allMembers.filter(function(m){return m.userId===u.userId;}).length};}),
     trips:readAll_('Trips').map(function(t){return {name:t.name,code:t.code,createdBy:t.createdBy,createdAt:dStr_(t.createdAt),status:t.status};}),
     activity:readAll_('Activity').sort(function(a,b){return a.at<b.at?1:-1;}).slice(0,100).map(function(a){return {actorName:a.actorName,detail:a.detail,at:dStr_(a.at)};})};
 }

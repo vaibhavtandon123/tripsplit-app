@@ -436,10 +436,11 @@ function openNewTrip(){
         box.innerHTML=list.map(function(d){return '<div class="destrow" data-n="'+esc(d.n)+'" style="padding:11px 13px;border-bottom:1px solid var(--line);font-size:15px">'+esc(d.n)+(d.ind?'':' <span class="muted" style="font-size:12px">· International</span>')+'</div>';}).join('');
         box.style.display='block';
         Array.prototype.forEach.call(box.querySelectorAll('.destrow'),function(r){r.onclick=function(){$('#tdest').value=r.getAttribute('data-n');box.style.display='none';autoName();};});}
-      $('#tdest').oninput=function(e){showSug(e.target.value);autoName();};
-      $('#tmonth').onchange=autoName;$('#tname').oninput=function(){nameEdited=true;};autoName();
+      $('#tdest').oninput=function(e){showSug(e.target.value);};
+      $('#tdest').onblur=function(){setTimeout(autoName,180);};
+      $('#tmonth').onchange=autoName;$('#tname').oninput=function(){nameEdited=true;};
       $('#createBtn').onclick=function(){
-        var dest=$('#tdest').value.trim(),name=$('#tname').value.trim()||dest;if(!name)return toast('Enter a destination or trip name');
+        var dest=$('#tdest').value.trim(),name=$('#tname').value.trim();if(!name&&dest){var ml0=monthLabel($('#tmonth').value);name=dest+(ml0?' · '+ml0:'');}if(!name)return toast('Enter a destination or trip name');
         var payload={token:S.token,name:name,destination:dest,monthLabel:monthLabel($('#tmonth').value),currency:$('#tc').value,budget:$('#tb').value,cats:catDefault,coverPreset:coverPreset};
         var f=$('#tcover').files[0];
         var go=function(cover){payload.cover=cover||'';loading(true);call('api_createTrip',payload).then(function(d){loading(false);closeModal();S.trip=d.trip;S.data=d;cacheSet('tet_trip_'+d.trip.tripId,d);renderDashboard();}).catch(function(e){loading(false);toast(e);});};

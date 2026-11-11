@@ -121,6 +121,26 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 .choice .ic{width:46px;height:46px;border-radius:13px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;}
 .choice .tx b{font-size:16px;display:block;}
 .cover{height:120px;border-radius:16px;background:linear-gradient(135deg,var(--mint),var(--mint-d));background-size:cover;background-position:center;margin-bottom:12px;display:flex;align-items:flex-end;padding:12px;color:#fff;font-weight:700;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.4);}
+.tcard2{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin:14px 0;box-shadow:0 8px 24px rgba(17,20,24,.06);}
+.tcover{height:112px;background-size:cover;background-position:center;position:relative;padding:14px;display:flex;align-items:flex-end;}
+.tname{color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 8px rgba(0,0,0,.4);letter-spacing:-.3px;line-height:1.2;}
+.tlock{position:absolute;right:12px;top:12px;background:rgba(255,255,255,.92);color:#444;font-size:12px;font-weight:700;padding:4px 10px;border-radius:11px;}
+.tfoot{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;}
+.tppl{font-size:13px;color:var(--sub);font-weight:600;}
+.ttot{text-align:right;}.ttot span{display:block;font-size:11px;color:var(--sub);font-weight:600;}.ttot b{font-size:18px;font-weight:800;color:var(--ink);}
+.hero{margin:-16px -20px 0;padding:max(18px,env(safe-area-inset-top)) 20px 60px;position:relative;}
+.hero .htop{display:flex;align-items:center;justify-content:space-between;}
+.hero .hback{color:#fff;font-size:15px;font-weight:700;opacity:.96;background:none;border:none;padding:0;}
+.hero .hmenu{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;border:none;font-size:18px;}
+.hero h1{color:#fff;font-size:23px;font-weight:800;margin:14px 0 0;letter-spacing:-.4px;}
+.hero .hsub{color:rgba(255,255,255,.92);font-size:13px;font-weight:600;margin-top:3px;}
+.balc{margin:-44px 0 0;background:var(--card);border-radius:22px;padding:18px;box-shadow:0 14px 34px rgba(17,20,24,.1);position:relative;z-index:5;}
+.balc .bl{font-size:13px;color:var(--sub);font-weight:600;}
+.balc .bv{font-size:29px;font-weight:900;letter-spacing:-1px;margin-top:2px;}
+.chips{display:flex;gap:10px;margin-top:14px;}
+.chip{flex:1;background:var(--soft);border-radius:14px;padding:10px 12px;}
+.chip .cl{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+.chip .cv{font-size:16px;font-weight:800;margin-top:3px;}
 </style>
 </head>
 <body>
@@ -141,6 +161,8 @@ function money(n,cur){return (CUR[cur]||'')+Number(n||0).toLocaleString('en-IN',
 function money0(n,cur){return (CUR[cur]||'')+Math.round(Number(n||0)).toLocaleString('en-IN');}
 var CATICON={Food:'🍽️',Travel:'🚕',Stay:'🏨',Shopping:'🛍️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 function catIcon(c){return CATICON[c]||'📦';}
+var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
+function tripGradient(key){var s=String(key||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return TGRADS[n%TGRADS.length];}
 var CATWORDS=[['Food',['dinner','lunch','breakfast','food','restaurant','cafe','pizza','burger','meal','snack','khana','nashta','thali','dhaba','biryani','lassi','dessert','icecream','sweets','mithai']],['Tickets',['ticket','train','flight','irctc','boarding','pnr','railway','airport','indigo','vistara','spicejet','airline','bus ticket']],['Stay',['hotel','stay','resort','hostel','room','airbnb','lodge','guesthouse','oyo','homestay','villa','cottage','check-in','checkin']],['Travel',['taxi','cab','uber','ola','auto','rickshaw','bus','metro','travel','ride','transport','toll','parking','ferry','boat ride']],['Fuel',['fuel','petrol','diesel','cng','gas station']],['Drinks',['drinks','beer','bar','coffee','tea','chai','juice','wine','cocktail','pub','soda','water bottle']],['Shopping',['shopping','shop','mall','clothes','souvenir','market','gift','store']],['Activities',['activity','entry','museum','park','trek','tour','adventure','boating','safari','zoo','sightseeing','rafting','zipline','spa','game']]];
 function guessCat(desc){var s=(desc||'').toLowerCase();if(s.length<2)return '';for(var i=0;i<CATWORDS.length;i++){var w=CATWORDS[i][1];for(var j=0;j<w.length;j++){if(s.indexOf(w[j])>=0)return CATWORDS[i][0];}}return '';}
 function sdate(iso){try{return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});}catch(e){return'';}}
@@ -290,12 +312,16 @@ function paintTrips(list){
   var box=$('#triplist');if(!box)return;
   if(!list.length){box.innerHTML='<div class="center"><div style="font-size:40px">🧳</div><div>No trips yet</div><button class="btn" id="n1" style="max-width:220px">Create a trip</button><button class="btn out sm" id="j1" style="max-width:220px">Join with a code</button></div>';$('#n1').onclick=openNewTrip;$('#j1').onclick=openJoinTrip;return;}
   var h='';list.forEach(function(t){
-    var ini=(t.name||'?').trim().charAt(0).toUpperCase();
-    var badge=t.coverId?'<div class="badge" data-cover="'+t.coverId+'"></div>':'<div class="badge">'+esc(ini)+'</div>';
-    h+='<div class="tripcard" data-id="'+t.tripId+'">'+badge+'<div class="t"><b>'+esc(t.name)+'</b> '+(t.locked?'<span class="lockpill">🔒 locked</span>':'')+'<div class="muted">'+t.members+' people · '+money0(t.total,t.currency)+' spent</div></div><div class="chev">›</div></div>';
+    var grad=tripGradient(t.tripId||t.name);
+    var cov=t.coverId?' data-cover="'+t.coverId+'"':'';
+    var lock=t.locked?'<span class="tlock">🔒 Locked</span>':'';
+    h+='<div class="tcard2" data-id="'+t.tripId+'">\
+      <div class="tcover"'+cov+' style="background:'+grad+'">'+lock+'<div class="tname">'+esc(t.name)+'</div></div>\
+      <div class="tfoot"><div class="tppl">👥 '+t.members+' '+(t.members==1?'person':'people')+'</div>\
+      <div class="ttot"><span>Total spent</span><b>'+money0(t.total,t.currency)+'</b></div></div></div>';
   });
   box.innerHTML=h;
-  Array.prototype.forEach.call(box.querySelectorAll('.tripcard'),function(c){c.onclick=function(){openTrip(c.getAttribute('data-id'));};});
+  Array.prototype.forEach.call(box.querySelectorAll('.tcard2'),function(c){c.onclick=function(){openTrip(c.getAttribute('data-id'));};});
   Array.prototype.forEach.call(box.querySelectorAll('[data-cover]'),function(c){c.style.backgroundImage='url(/img?id='+encodeURIComponent(c.getAttribute('data-cover'))+')';});
 }
 
@@ -366,15 +392,18 @@ function refreshTrip(id){
 function renderDashboard(updating){
   if(!S.data||!S.data.trip){ renderTrips(); return; }
   var d=S.data,t=d.trip,cur=t.currency;
-  var head='<div class="top"><button class="back" id="bk">‹ Trips</button><h1 style="font-size:17px;text-align:center">'+esc(t.name)+'</h1><button class="iconbtn" id="tripMenu">⋯</button></div>';
+  var head='';
   var myBal=(d.balances.filter(function(b){return b.memberId===d.me.memberId;})[0]||{}).balance||0;
   var settleTotal=d.settle.reduce(function(s,x){return s+x.amount;},0);
-  var cover=t.coverId?'<div class="cover" id="coverImg">'+esc(t.name)+'</div>':'';
-  var lock=t.locked?'<div class="lockbanner">🔒 This trip is locked — view only. Open ⋯ to unlock.</div>':'';
-  var kpis='<div class="kpis"><div class="kpi"><div class="l">Total spent</div><div class="v">'+money0(d.total,cur)+'</div></div>\
-    <div class="kpi"><div class="l">Your balance</div><div class="v" style="color:'+(myBal>=0?'var(--green)':'var(--orange)')+'">'+(myBal>=0?'+':'−')+money0(Math.abs(myBal),cur)+'</div></div>\
-    <div class="kpi"><div class="l">People</div><div class="v">'+d.members.length+'</div></div>\
-    <div class="kpi"><div class="l">To settle</div><div class="v" style="color:var(--orange)">'+money0(settleTotal,cur)+'</div></div></div>';
+  var hero='<div class="hero" id="heroBox" style="background:'+tripGradient(t.tripId||t.name)+'">\
+    <div class="htop"><button class="hback" id="bk">‹ Trips</button><button class="hmenu" id="tripMenu">⋯</button></div>\
+    <h1>'+esc(t.name)+'</h1><div class="hsub">'+d.members.length+' '+(d.members.length==1?'person':'people')+'</div></div>';
+  var balCard='<div class="balc"><div class="bl">'+(myBal>=0?'You are owed':'You owe')+'</div>\
+    <div class="bv" style="color:'+(myBal>=0?'#19B47E':'var(--orange)')+'">'+(myBal>=0?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
+    <div class="chips"><div class="chip"><div class="cl">Total</div><div class="cv">'+money0(d.total,cur)+'</div></div>\
+    <div class="chip"><div class="cl">People</div><div class="cv">'+d.members.length+'</div></div>\
+    <div class="chip"><div class="cl">To settle</div><div class="cv" style="color:var(--orange)">'+money0(settleTotal,cur)+'</div></div></div></div>';
+  var lock=t.locked?'<div class="lockbanner" style="margin-top:14px">🔒 This trip is locked — view only. Open ⋯ to unlock.</div>':'';
   var budget='';
   if(t.budget){var pct=Math.round(d.total/t.budget*100),col=pct>=100?'var(--orange)':(pct>=80?'#E8A13A':'var(--mint)');
     var left=t.budget-d.total,leftTxt=left>=0?money0(left,cur)+' left':money0(-left,cur)+' over';
@@ -384,7 +413,7 @@ function renderDashboard(updating){
   var settleHtml='';
   if(d.settle.length){settleHtml='<h2 class="sec">Settle up</h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div><button class="btn out sm" id="settleBtn">Open settle up</button>';}
   else settleHtml='<div class="card" style="text-align:center;color:var(--green)">✓ Everyone is settled up</div>';
-  var body=cover+lock+kpis+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
+  var body=hero+balCard+lock+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
     '<h2 class="sec" style="display:flex;justify-content:space-between">Recent expenses <a id="allExp" style="color:var(--mint);font-size:13px;font-weight:600">See all</a></h2><div id="expMini"></div>\
     <div class="row2" style="margin-top:14px"><button class="btn sec sm" id="shareBtn">📤 Share</button><button class="btn sec sm" id="ticketBtn">🎟️ Tickets</button><button class="btn sec sm" id="addPpl">👥 People</button></div>\
     <button class="btn sec sm" id="locBtn" style="margin-top:10px">📍 Locations map</button>';
@@ -392,7 +421,7 @@ function renderDashboard(updating){
   $('#bk').onclick=renderTrips;$('#tripMenu').onclick=openTripMenu;
   if($('#settleBtn'))$('#settleBtn').onclick=openSettle;
   $('#allExp').onclick=openAllExpenses;$('#shareBtn').onclick=openShare;$('#addPpl').onclick=openPeople;$('#ticketBtn').onclick=openTripTickets;$('#locBtn').onclick=openLocations;
-  if(t.coverId&&$('#coverImg'))$('#coverImg').style.backgroundImage='url(/img?id='+encodeURIComponent(t.coverId)+')';
+  if(t.coverId&&$('#heroBox'))$('#heroBox').style.background='linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42)),url(/img?id='+encodeURIComponent(t.coverId)+') center/cover';
   var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted;}).slice(0,5);
   if(!act.length)mini.innerHTML='<div class="muted" style="padding:10px 2px">No expenses yet. Tap ＋ to add one.</div>';
   else act.forEach(function(e){mini.appendChild(expRow(e));});

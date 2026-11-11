@@ -151,8 +151,20 @@ function api_signup(p){
   if(!u||!p.password||!p.fullName) throw 'Please fill name, username and password.';
   if(u.length<3) throw 'Username must be at least 3 letters.';
   var users=readAll_('Users');
+  var myDigits=String(p.mobile||'').replace(/[^0-9]/g,'');
+  // Claim a placeholder (stub) account an admin pre-created: match by username first, else by phone.
+  var stub=users.filter(function(x){return !x.passHash && String(x.username).toLowerCase()===u;})[0];
+  if(!stub && myDigits.length>=10) stub=users.filter(function(x){return !x.passHash && String(x.mobile||'').replace(/[^0-9]/g,'').slice(-10)===myDigits.slice(-10);})[0];
+  if(stub){
+    if(String(stub.username).toLowerCase()!==u && users.some(function(x){return x.passHash && String(x.username).toLowerCase()===u;})) throw 'That username is already taken.';
+    var salt2=Utilities.getUuid();
+    var photoId2=p.photo?savePhoto_(p.photo,stub.userId):(stub.photoId||'');
+    updateWhere_('Users','userId',stub.userId,{fullName:p.fullName.trim(),username:u,passHash:hash_(p.password,salt2),salt:salt2,
+      email:(p.email||'').trim()||stub.email||'',mobile:(p.mobile||'').trim()||stub.mobile||'',photoId:photoId2});
+    return api_login({username:u,password:p.password});
+  }
   if(users.some(function(x){return String(x.username).toLowerCase()===u;})) throw 'That username is already taken.';
-  if(p.email && users.some(function(x){return String(x.email).toLowerCase()===String(p.email).toLowerCase();})) throw 'That email is already registered.';
+  if(p.email && users.some(function(x){return x.passHash && String(x.email).toLowerCase()===String(p.email).toLowerCase();})) throw 'That email is already registered.';
   var salt=Utilities.getUuid(), id='u-'+Utilities.getUuid().slice(0,8);
   var photoId=p.photo?savePhoto_(p.photo,id):'';
   appendRow_('Users',{userId:id,fullName:p.fullName.trim(),username:u,passHash:hash_(p.password,salt),salt:salt,
@@ -337,7 +349,7 @@ function api_setMemberKid(p){
   backup_(); return getTripData_(trip.tripId,me);
 }
 function api_setMemberHead(p){
-  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireMember_(p.tripId,me);
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
   var members=readAll_('Members').filter(function(m){return m.tripId===p.tripId;});
   var mine=members.filter(function(m){return m.memberId===p.memberId;})[0]; if(!mine) throw 'Member not found.';
   var head=String(p.headId||'');
@@ -755,7 +767,7 @@ function backup_(force){
 function api_adminOverview(token){
   var me=userByToken_(token); if(!isAdmin_(me)) throw 'Admins only.';
   var allMembers=readAll_('Members');
-  return {users:readAll_('Users').map(function(u){return {userId:u.userId,fullName:u.fullName,username:u.username,email:u.email,mobile:u.mobile,dob:u.dob||'',photoId:u.photoId||'',isAdmin:isAdmin_(u),createdAt:dStr_(u.createdAt),lastLogin:dStr_(u.lastLogin),tripCount:allMembers.filter(function(m){return m.userId===u.userId;}).length};}),
+  return {users:readAll_('Users').map(function(u){return {userId:u.userId,fullName:u.fullName,username:u.username,email:u.email,mobile:u.mobile,dob:u.dob||'',photoId:u.photoId||'',isAdmin:isAdmin_(u),isStub:!u.passHash,createdAt:dStr_(u.createdAt),lastLogin:dStr_(u.lastLogin),tripCount:allMembers.filter(function(m){return m.userId===u.userId;}).length};}),
     trips:readAll_('Trips').map(function(t){return {name:t.name,code:t.code,createdBy:t.createdBy,createdAt:dStr_(t.createdAt),status:t.status};}),
     activity:readAll_('Activity').sort(function(a,b){return a.at<b.at?1:-1;}).slice(0,100).map(function(a){return {actorName:a.actorName,detail:a.detail,at:dStr_(a.at)};})};
 }
@@ -765,6 +777,57 @@ function api_adminSetPassword(p){
   if(!p.password || String(p.password).length<4) throw 'Password must be at least 4 characters.';
   updateWhere_('Users','userId',user.userId,{passHash:hash_(p.password,user.salt),tokenHash:''}); // new password; old sessions logged out
   return {ok:true};
+}
+function api_adminCreatePlaceholder(p){
+  var me=userByToken_(p.token); if(!isAdmin_(me)) throw 'Admins only.';
+  var name=String(p.fullName||'').trim(); if(!name) throw 'Please enter a name.';
+  var users=readAll_('Users');
+  var u=String(p.username||'').trim().toLowerCase();
+  if(u){
+    if(u.length<3) throw 'Username must be at least 3 letters.';
+    if(users.some(function(x){return String(x.username).toLowerCase()===u;})) throw 'That username is already taken.';
+  } else {
+    var base=name.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,10)||'guest';
+    do{ u=base+'-'+Utilities.getUuid().slice(0,4); }while(users.some(function(x){return String(x.username).toLowerCase()===u;}));
+  }
+  var digits=String(p.mobile||'').replace(/[^0-9]/g,'');
+  if(digits.length>=10 && users.some(function(x){return String(x.mobile||'').replace(/[^0-9]/g,'').slice(-10)===digits.slice(-10);})) throw 'Someone with that phone already exists — add them by username instead.';
+  var id='u-'+Utilities.getUuid().slice(0,8);
+  appendRow_('Users',{userId:id,fullName:name,username:u,passHash:'',salt:Utilities.getUuid(),
+    email:String(p.email||'').trim(),mobile:String(p.mobile||'').trim(),photoId:'',tokenHash:'',tokenExp:'',createdAt:now_(),dob:String(p.dob||'').trim()});
+  if(p.tripId){
+    var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+    if(!readAll_('Members').some(function(m){return m.tripId===trip.tripId&&m.userId===id;})) addMemberRow_(trip.tripId,id,name,false,'','','');
+    logAct_(trip.tripId,me,'added','Added '+name+' (placeholder)');
+    backup_(); return getTripData_(trip.tripId,me);
+  }
+  backup_(); return {ok:true,userId:id,username:u};
+}
+function api_adminUpdateUser(p){
+  var me=userByToken_(p.token); if(!isAdmin_(me)) throw 'Admins only.';
+  var user=readAll_('Users').filter(function(x){return x.userId===p.userId;})[0]; if(!user) throw 'User not found.';
+  var patch={};
+  if(p.fullName!==undefined && String(p.fullName).trim()) patch.fullName=String(p.fullName).trim();
+  if(p.username!==undefined){
+    var u=String(p.username||'').trim().toLowerCase();
+    if(u){
+      if(u.length<3) throw 'Username must be at least 3 letters.';
+      if(readAll_('Users').some(function(x){return x.userId!==user.userId && String(x.username).toLowerCase()===u;})) throw 'That username is already taken.';
+      patch.username=u;
+    }
+  }
+  if(p.email!==undefined) patch.email=String(p.email||'').trim();
+  if(p.mobile!==undefined){
+    var d=String(p.mobile||'').replace(/[^0-9]/g,'');
+    if(d.length>=10 && readAll_('Users').some(function(x){return x.userId!==user.userId && String(x.mobile||'').replace(/[^0-9]/g,'').slice(-10)===d.slice(-10);})) throw 'Another user already has that phone.';
+    patch.mobile=String(p.mobile||'').trim();
+  }
+  if(p.dob!==undefined) patch.dob=String(p.dob||'').trim();
+  if(p.isAdmin!==undefined) patch.isAdmin=p.isAdmin?'TRUE':'FALSE';
+  if(p.photo){ patch.photoId=savePhoto_(p.photo,user.userId); }
+  updateWhere_('Users','userId',user.userId,patch);
+  if(patch.fullName){ readAll_('Members').forEach(function(m){ if(m.userId===user.userId) updateWhere_('Members','memberId',m.memberId,{displayName:patch.fullName}); }); }
+  backup_(); return publicUser_(readAll_('Users').filter(function(x){return x.userId===user.userId;})[0]);
 }
 function api_updateLocation(p){
   var me=userByToken_(p.token);

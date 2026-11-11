@@ -982,7 +982,7 @@ function openPeople(){
   if(canAdd)html+='<h2 class="sec">Add people</h2>\
     <div class="field"><label>Add by username</label><div class="row2"><input id="addU" autocapitalize="none" placeholder="their username"><button class="btn sm" id="addUBtn" style="width:auto;padding:13px 16px">Add</button></div></div>\
     <div class="field"><label>Add family member (name only, no login)</label><div class="row2"><input id="addF" placeholder="Family member\'s name"><button class="btn sm" id="addFBtn" style="width:auto;padding:13px 16px">Add</button></div></div>\
-    <p class="muted">Family members are counted under the person who adds them when settling up.</p>';
+    <p class="muted">Family members are counted under the person who adds them when settling up.</p>'+(t.isAdmin?'<button class="btn out sm" id="addPlace" style="margin-top:4px">➕ Add person without app (own balance)</button><p class="muted">Creates a placeholder with its own balance. Connects automatically when they sign up with the same username or phone.</p>':'');
   sheetModal('People',html,function(){
     $('#copyInvite').onclick=function(){var link=t.webUrl+'?join='+t.code;if(navigator.clipboard)navigator.clipboard.writeText(link);toast('Invite link copied');};
     if($('#addUBtn'))$('#addUBtn').onclick=function(){var u=$('#addU').value.trim();if(!u)return toast('Enter a username');loading(true);call('api_addMemberByUsername',{token:S.token,tripId:t.tripId,username:u}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
@@ -990,6 +990,7 @@ function openPeople(){
     Array.prototype.forEach.call(document.querySelectorAll('.kidBtn'),function(b){b.onclick=function(){openKidSheet(b.getAttribute('data-m'));};});
     Array.prototype.forEach.call(document.querySelectorAll('.linkBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
     Array.prototype.forEach.call(document.querySelectorAll('.headBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
+    if($('#addPlace'))$('#addPlace').onclick=function(){openCreatePlaceholder(t.tripId);};
   });
 }
 function openLinkHead(memberId){
@@ -1157,10 +1158,13 @@ function openEditProfile(){
 function openAdmin(){
   loading(true);
   call('api_adminOverview',S.token).then(function(o){loading(false);
-    var usr=o.users.map(function(u){return '<div class="exp"><div class="mid"><b>'+esc(u.fullName)+(u.isAdmin?' <span class="pill">admin</span>':'')+'</b><div class="meta">@'+esc(u.username)+(u.email?' · '+esc(u.email):'')+(u.mobile?' · 📱 '+esc(u.mobile):'')+'</div><div class="meta">'+(u.tripCount||0)+' trips · joined '+(u.createdAt?sdt(u.createdAt):'—')+'</div><div class="meta" style="color:var(--mint)">Last login: '+(u.lastLogin?sdt(u.lastLogin):'never')+'</div></div><button class="btn out sm pwBtn" data-uid="'+esc(u.userId)+'" data-un="'+esc(u.username)+'" style="width:auto;padding:8px 10px;font-size:12px">Reset</button></div>';}).join('');
+    var byId={};o.users.forEach(function(u){byId[u.userId]=u;});
+    var usr=o.users.map(function(u){return '<div class="exp"><div class="mid"><b>'+esc(u.fullName)+(u.isAdmin?' <span class="pill">admin</span>':'')+(u.isStub?' <span class="pill">placeholder</span>':'')+'</b><div class="meta">@'+esc(u.username)+(u.email?' · '+esc(u.email):'')+(u.mobile?' · 📱 '+esc(u.mobile):'')+'</div><div class="meta">'+(u.tripCount||0)+' trips · joined '+(u.createdAt?sdt(u.createdAt):'—')+'</div><div class="meta" style="color:var(--mint)">Last login: '+(u.lastLogin?sdt(u.lastLogin):'never')+'</div></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn out sm edBtn" data-uid="'+esc(u.userId)+'" style="width:auto;padding:8px 10px;font-size:12px">Edit</button><button class="btn out sm pwBtn" data-uid="'+esc(u.userId)+'" data-un="'+esc(u.username)+'" style="width:auto;padding:8px 10px;font-size:12px">Reset</button></div></div>';}).join('');
     var trp=o.trips.map(function(t){return '<div class="exp"><div class="mid"><b>'+esc(t.name)+'</b><div class="meta">code '+esc(t.code)+' · '+esc(t.status)+'</div></div></div>';}).join('');
     var act=o.activity.map(function(a){return '<div class="exp"><div class="mid"><b>'+esc(a.actorName)+'</b><div class="meta">'+esc(a.detail)+' · '+sdt(a.at)+'</div></div></div>';}).join('');
-    sheetModal('Admin overview','<p class="muted">Passwords are encrypted and cannot be viewed. You can set a new one for any user.</p><h2 class="sec">Users ('+o.users.length+')</h2>'+usr+'<h2 class="sec">Trips ('+o.trips.length+')</h2>'+trp+'<h2 class="sec">Recent activity</h2>'+act,function(){
+    sheetModal('Admin overview','<p class="muted">Passwords are encrypted and cannot be viewed. Edit any user\'s details, reset a password, or create a placeholder for someone without the app.</p><button class="btn sec" id="addPlaceholder" style="margin-bottom:10px">➕ Create placeholder person</button><h2 class="sec">Users ('+o.users.length+')</h2>'+usr+'<h2 class="sec">Trips ('+o.trips.length+')</h2>'+trp+'<h2 class="sec">Recent activity</h2>'+act,function(){
+      if($('#addPlaceholder'))$('#addPlaceholder').onclick=function(){openCreatePlaceholder(null);};
+      Array.prototype.forEach.call(document.querySelectorAll('.edBtn'),function(b){b.onclick=function(){openEditUserAdmin(byId[b.getAttribute('data-uid')]);};});
       Array.prototype.forEach.call(document.querySelectorAll('.pwBtn'),function(b){b.onclick=function(){
         var un=b.getAttribute('data-un'),uid=b.getAttribute('data-uid');
         var np=prompt('New password for @'+un+' (min 4 chars):'); if(np===null)return; if(np.length<4)return toast('Too short');
@@ -1169,6 +1173,42 @@ function openAdmin(){
       };});
     });
   }).catch(function(e){loading(false);toast(e);});
+}
+function openEditUserAdmin(u){
+  if(!u)return; u=u||{};
+  var html='<div class="field"><label>Full name</label><input id="euName" value="'+esc(u.fullName||'')+'"></div>\
+    <div class="field"><label>Username</label><input id="euUser" autocapitalize="none" value="'+esc(u.username||'')+'"></div>\
+    <div class="field"><label>Phone</label><input id="euPhone" inputmode="tel" value="'+esc(u.mobile||'')+'"></div>\
+    <div class="field"><label>Email</label><input id="euEmail" autocapitalize="none" value="'+esc(u.email||'')+'"></div>\
+    <div class="field"><label>Date of birth</label><input id="euDob" type="date" value="'+esc(u.dob||'')+'"></div>\
+    <label class="chk" style="border:0;padding:4px 0"><input type="checkbox" id="euAdmin" '+(u.isAdmin?'checked':'')+'><span class="nm">Admin access</span></label>\
+    <button class="btn" id="euSave" style="margin-top:8px">Save changes</button>';
+  sheetModal('Edit '+esc(u.fullName||'user'),html,function(){
+    $('#euSave').onclick=function(){
+      var name=$('#euName').value.trim(); if(!name)return toast('Enter a name');
+      loading(true);
+      call('api_adminUpdateUser',{token:S.token,userId:u.userId,fullName:name,username:$('#euUser').value.trim(),mobile:$('#euPhone').value.trim(),email:$('#euEmail').value.trim(),dob:$('#euDob').value,isAdmin:$('#euAdmin').checked})
+        .then(function(){loading(false);closeModal();openAdmin();toast('Saved');}).catch(function(e){loading(false);toast(e);});
+    };
+  });
+}
+function openCreatePlaceholder(tripId){
+  var html='<p class="muted">For someone on the trip who hasn\'t made an account yet. Fill whatever you know — only the name is needed. When they sign up later with the same username or phone, their account connects to this one automatically.</p>\
+    <div class="field"><label>Full name</label><input id="cpName" placeholder="Their full name"></div>\
+    <div class="field"><label>Username (optional)</label><input id="cpUser" autocapitalize="none" placeholder="auto if blank"></div>\
+    <div class="field"><label>Phone (optional)</label><input id="cpPhone" inputmode="tel" placeholder="for auto-connect"></div>\
+    <div class="field"><label>Email (optional)</label><input id="cpEmail" autocapitalize="none" placeholder=""></div>\
+    <div class="field"><label>Date of birth (optional)</label><input id="cpDob" type="date"></div>\
+    <button class="btn" id="cpSave">Create</button>';
+  sheetModal('Create placeholder person',html,function(){
+    $('#cpSave').onclick=function(){
+      var name=$('#cpName').value.trim(); if(!name)return toast('Enter a name');
+      var arg={token:S.token,fullName:name,username:$('#cpUser').value.trim(),mobile:$('#cpPhone').value.trim(),email:$('#cpEmail').value.trim(),dob:$('#cpDob').value};
+      if(tripId)arg.tripId=tripId;
+      loading(true);
+      call('api_adminCreatePlaceholder',arg).then(function(dd){loading(false);closeModal();if(tripId){setData(dd);openPeople();}else{openAdmin();}toast('Created');}).catch(function(e){loading(false);toast(e);});
+    };
+  });
 }
 
 /* ---------- bottom-sheet modal ---------- */

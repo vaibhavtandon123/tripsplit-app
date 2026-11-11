@@ -31,7 +31,9 @@ body{position:fixed;inset:0;display:flex;flex-direction:row;justify-content:cent
 @media(min-width:760px){body{background:#0d0e10;}#frame{max-width:460px;box-shadow:0 0 70px rgba(0,0,0,.5);}}
 a{color:inherit;}
 .app{flex:1;display:flex;flex-direction:column;min-height:0;}
-.screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 20px 100px;touch-action:pan-y;}
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 20px 100px;touch-action:pan-y;animation:scrIn .26s cubic-bezier(.22,.61,.36,1);}
+@keyframes scrIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){.screen{animation:none;}}
 .hidden{display:none !important;}
 .top{display:flex;align-items:center;gap:10px;padding:14px 16px 6px;}
 .top h1{font-size:21px;font-weight:800;margin:0;flex:1;letter-spacing:-.3px;}
@@ -87,7 +89,7 @@ input[type=date]{-webkit-appearance:none;appearance:none;min-height:48px;line-he
 .settle{display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;}
 .settle .nm{font-weight:600;}.settle .ar{color:var(--sub);}.settle .mo{margin-left:auto;font-weight:700;}
 .sheet{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:50;}
-.sheet .inner{background:var(--card);width:100%;max-width:100%;max-height:92%;overflow-y:auto;overflow-x:hidden;border-radius:20px 20px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom));animation:up .22s ease;}
+.sheet .inner{background:var(--card);width:100%;max-width:100%;max-height:92%;overflow-y:auto;overflow-x:hidden;border-radius:22px 22px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom));animation:up .32s cubic-bezier(.22,.61,.36,1);}
 .sheet .chk{flex-wrap:wrap;}
 .sheet .chk .nm{min-width:40%;}
 @keyframes up{from{transform:translateY(100%);}to{transform:translateY(0);}}
@@ -120,6 +122,10 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 .choice{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;box-shadow:var(--shadow);}
 .choice .ic{width:46px;height:46px;border-radius:13px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;}
 .choice .tx b{font-size:16px;display:block;}
+.choice-primary{background:linear-gradient(135deg,var(--mint),var(--mint-d));border-color:transparent;color:#fff;box-shadow:0 10px 24px rgba(14,143,99,.32);}
+.choice-primary .ic{background:rgba(255,255,255,.22);}
+.choice-primary .muted{color:rgba(255,255,255,.9)!important;}
+.choice-primary .chev{color:#fff;}
 .cover{height:120px;border-radius:16px;background:linear-gradient(135deg,var(--mint),var(--mint-d));background-size:cover;background-position:center;margin-bottom:12px;display:flex;align-items:flex-end;padding:12px;color:#fff;font-weight:700;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.4);}
 .tcard2{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin:14px 0;box-shadow:0 8px 24px rgba(17,20,24,.06);}
 .tcover{height:112px;background-size:cover;background-position:center;position:relative;padding:14px;display:flex;align-items:flex-end;}
@@ -328,8 +334,8 @@ function paintTrips(list){
 /* ---- Create / Join chooser (clean premium) ---- */
 function openStart(){
   sheetModal('New trip',
-    '<div class="choice" id="cCreate"><div class="ic">✈️</div><div class="tx"><b>Create a new trip</b><span class="muted">Start a fresh trip and invite friends</span></div><div class="chev">›</div></div>\
-     <div class="choice" id="cJoin"><div class="ic">🔗</div><div class="tx"><b>Join a trip</b><span class="muted">Enter a code or open an invite link</span></div><div class="chev">›</div></div>',
+    '<div class="choice" id="cJoin"><div class="ic">🔗</div><div class="tx"><b>Join a trip</b><span class="muted">Enter a code or open an invite link</span></div><div class="chev">›</div></div>\
+     <div class="choice choice-primary" id="cCreate"><div class="ic">✈️</div><div class="tx"><b>Create a new trip</b><span class="muted">Start a fresh trip and invite friends</span></div><div class="chev">›</div></div>',
     function(){$('#cCreate').onclick=function(){closeModal();openNewTrip();};$('#cJoin').onclick=function(){closeModal();openJoinTrip();};});
 }
 
@@ -857,7 +863,7 @@ function openShare(){
     <div id="shareOut" style="margin-top:12px"></div>',
     function(){
       $('#pdfBtn').onclick=function(){loading(true);call('api_makeReportPdf',{token:S.token,tripId:d.trip.tripId}).then(function(r){loading(false);$('#shareOut').innerHTML='<a class="btn out sm" href="'+r.dataUrl+'" download="'+esc(r.name)+'">⬇ Download PDF</a><a class="btn out sm" href="'+r.url+'" target="_blank" style="margin-top:8px">Open in Drive</a>';}).catch(function(e){loading(false);toast(e);});};
-      $('#waBtn').onclick=function(){loading(true);call('api_settleMessages',{token:S.token,tripId:d.trip.tripId}).then(function(r){loading(false);if(!r.messages.length){$('#shareOut').innerHTML='<div class="muted">Everyone is settled — nothing to send.</div>';return;}var h='';r.messages.forEach(function(m){var mob=(m.mobile||'').replace(/[^0-9]/g,'');if(mob.length===10)mob='91'+mob;var link=mob?'https://wa.me/'+mob+'?text='+encodeURIComponent(m.text):'https://wa.me/?text='+encodeURIComponent(m.text);h+='<a class="btn sec sm" style="margin-top:8px" href="'+link+'" target="_blank">Send to '+esc(m.name)+'</a>';});$('#shareOut').innerHTML=h;}).catch(function(e){loading(false);toast(e);});};
+      $('#waBtn').onclick=function(){loading(true);call('api_settleMessages',{token:S.token,tripId:d.trip.tripId}).then(function(r){loading(false);if(!r.messages.length){$('#shareOut').innerHTML='<div class="muted">Everyone is settled — nothing to send.</div>';return;}var h='';r.messages.forEach(function(m){var mob=String(m.mobile||'').replace(/[^0-9]/g,'');if(mob.length===10)mob='91'+mob;var link=mob?'https://wa.me/'+mob+'?text='+encodeURIComponent(m.text):'https://wa.me/?text='+encodeURIComponent(m.text);h+='<a class="btn sec sm" style="margin-top:8px" href="'+link+'" target="_blank">Send to '+esc(m.name)+'</a>';});$('#shareOut').innerHTML=h;}).catch(function(e){loading(false);toast(e);});};
       $('#mailBtn').onclick=function(){var emails=S.data.members.map(function(m){return m.email;}).filter(Boolean);var to=prompt('Email report to (comma-separated):',emails.join(', '));if(to===null)return;var arr=to.split(',').map(function(s){return s.trim();}).filter(Boolean);if(!arr.length)return toast('No emails');loading(true);call('api_emailReport',{token:S.token,tripId:d.trip.tripId,emails:arr}).then(function(){loading(false);toast('Report emailed');}).catch(function(e){loading(false);toast(e);});};
     });
 }

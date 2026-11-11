@@ -64,12 +64,12 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='5'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','5'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='6'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','6'); } }
   return ss;
 }
 
 var SCHEMA={
-  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt'],
+  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin'],
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
   Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON'],
@@ -179,9 +179,9 @@ function userByToken_(token){
   }
   throw 'Please log in again.';
 }
-function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,isAdmin:String(x.username).toLowerCase()===ADMIN_USERNAME}; }
+function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,isAdmin:isAdmin_(x)}; }
 function api_me(token){ return publicUser_(userByToken_(token)); }
-function isAdmin_(me){ return String(me.username).toLowerCase()===ADMIN_USERNAME; }
+function isAdmin_(me){ return String(me.username).toLowerCase()===ADMIN_USERNAME || String(me.isAdmin).toUpperCase()==='TRUE'; }
 
 function api_forgotPassword(p){
   var email=(p.email||'').trim().toLowerCase();

@@ -417,7 +417,7 @@ function openNewTrip(){
   var catDefault=['Food','Travel','Stay','Shopping','Tickets','Fuel','Other'];
   var now=new Date(),thisMonth=now.getFullYear()+'-'+('0'+(now.getMonth()+1)).slice(-2);
   sheetModal('Create a new trip',
-    '<div class="field"><label>Destination</label><input id="tdest" placeholder="Search a destination" autocomplete="off"><div id="destSug" style="display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;overflow:hidden;max-height:230px;overflow-y:auto"></div></div>\
+    '<div class="field" style="position:relative;z-index:30"><label>Destination</label><input id="tdest" placeholder="Search a destination" autocomplete="off"><div id="destSug" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;overflow:hidden;max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
      <div class="field"><label>Month</label><input id="tmonth" type="month" value="'+thisMonth+'"></div>\
      <div class="field"><label>Trip name</label><input id="tname" placeholder="Trip name (auto-filled)"></div>\
      <div class="row2"><div class="field" style="flex:1"><label>Currency</label><select id="tc"><option value="INR">₹ INR</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option><option value="GBP">£ GBP</option><option value="AED">AED</option></select></div>\

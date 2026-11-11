@@ -154,6 +154,26 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 .chip{flex:1;background:var(--soft);border-radius:14px;padding:10px 12px;}
 .chip .cl{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .chip .cv{font-size:16px;font-weight:800;margin-top:3px;}
+.bp{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin:14px 0;box-shadow:0 8px 24px rgba(17,20,24,.06);}
+.bph{display:flex;align-items:center;gap:10px;padding:14px 16px 12px;}
+.bph .md{width:40px;height:40px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;}
+.bph .ti{flex:1;min-width:0;}.bph .ti b{font-size:15px;font-weight:800;}.bph .ti .s{font-size:12px;color:var(--sub);font-weight:600;margin-top:1px;}
+.bph .fare{font-size:17px;font-weight:900;}
+.bproute{display:flex;align-items:center;padding:4px 16px 12px;}
+.bproute .end{text-align:center;min-width:72px;}
+.bproute .code{font-size:19px;font-weight:900;letter-spacing:-.5px;}
+.bproute .pl{font-size:10px;color:var(--sub);font-weight:600;margin-top:1px;}
+.bproute .mid{flex:1;text-align:center;}.bproute .mid .ln{height:2px;background:var(--line);margin:6px 8px 3px;}.bproute .mid .tr{font-size:13px;}
+.bpperf{border-top:2px dashed var(--line);margin:0 12px;}
+.bpmeta{display:flex;gap:18px;padding:11px 16px 2px;flex-wrap:wrap;}
+.bpmeta .l{font-size:10px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+.bpmeta .v{font-size:13px;font-weight:800;margin-top:2px;}
+.bppax{padding:6px 16px 4px;}
+.bprow{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line);}
+.bprow .nm{flex:1;font-size:13.5px;font-weight:700;}
+.bpseat{background:var(--soft);border-radius:9px;padding:4px 10px;font-size:12px;font-weight:800;color:var(--mint-d);}
+.bpf{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);margin-top:4px;}
+.bpf .pb{font-size:12px;color:var(--sub);font-weight:600;}.bpf .pdf{font-size:13px;font-weight:800;color:var(--mint);}
 </style>
 </head>
 <body>
@@ -725,16 +745,23 @@ function openTripTickets(){
     var tk=e.ticket||{};
     var modeIc={train:'🚆',flight:'✈️',bus:'🚌'}[tk.mode]||'🎟️';
     var title=tk.train||tk.route||e.description;
-    var sub=[];if(tk.route&&tk.train)sub.push(tk.route);if(tk.cls)sub.push(tk.cls);if(tk.date)sub.push(tk.date);
+    var st=[];if(tk.cls)st.push(tk.cls);if(tk.date)st.push(tk.date);
+    function codeOf(s){var m=String(s||'').match(/\(([^)]+)\)\s*$/);return m?m[1]:String(s||'').slice(0,4).toUpperCase();}
+    function nameOf(s){return String(s||'').replace(/\s*\(([^)]+)\)\s*$/,'').trim();}
+    var routeHtml='';
+    if(tk.from&&tk.to){routeHtml='<div class="bproute"><div class="end"><div class="code">'+esc(codeOf(tk.from))+'</div><div class="pl">'+esc(nameOf(tk.from))+'</div></div><div class="mid"><div class="tr">'+modeIc+'</div><div class="ln"></div></div><div class="end"><div class="code">'+esc(codeOf(tk.to))+'</div><div class="pl">'+esc(nameOf(tk.to))+'</div></div></div><div class="bpperf"></div>';}
+    var meta=[];if(tk.pnr)meta.push('<div><div class="l">PNR</div><div class="v">'+esc(tk.pnr)+'</div></div>');if(tk.cls)meta.push('<div><div class="l">Class</div><div class="v">'+esc(tk.cls)+'</div></div>');if(tk.trainNo&&tk.mode==='train')meta.push('<div><div class="l">Train</div><div class="v">'+esc(tk.trainNo)+'</div></div>');
     var pax=(tk.passengers||[]).map(function(x){
-      var bits=[];if(x.coach)bits.push('Coach '+x.coach);if(x.seat)bits.push('Seat '+x.seat);
-      return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:1px solid var(--line)"><span>'+esc(x.name)+'</span><span class="muted">'+esc(bits.join(' · '))+'</span></div>';
+      var seat=[x.coach,x.seat].filter(Boolean).join(' · ');
+      return '<div class="bprow"><div class="nm">'+esc(x.name)+'</div>'+(seat?'<span class="bpseat">💺 '+esc(seat)+'</span>':'')+'</div>';
     }).join('');
-    var pdf=e.receiptId?'<a class="muted" style="font-size:12px;color:var(--mint)" href="https://drive.google.com/file/d/'+e.receiptId+'/view" target="_blank">Open PDF ↗</a>':'';
-    body+='<div class="card"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">'+modeIc+'</div><div style="flex:1"><b>'+esc(title)+'</b><div class="muted" style="font-size:12px">'+esc(sub.join(' · '))+'</div></div><div style="text-align:right"><b>'+money0(e.amount,cur)+'</b></div></div>'+
-      (tk.pnr?'<div class="muted" style="font-size:12px;margin-top:6px">PNR: <b>'+esc(tk.pnr)+'</b></div>':'')+
-      (pax?'<div style="margin-top:6px">'+pax+'</div>':'')+
-      '<div style="display:flex;justify-content:space-between;margin-top:8px"><span class="muted" style="font-size:12px">Paid by '+esc(payerLabel(e))+'</span>'+pdf+'</div></div>';
+    var pdf=e.receiptId?'<a class="pdf" href="https://drive.google.com/file/d/'+e.receiptId+'/view" target="_blank">Open PDF ↗</a>':'<span></span>';
+    var nAdult=(tk.passengers||[]).length||1;var per=money0(Math.round(e.amount/nAdult),cur);
+    body+='<div class="bp"><div class="bph"><div class="md">'+modeIc+'</div><div class="ti"><b>'+esc(title)+'</b>'+(st.length?'<div class="s">'+esc(st.join(' · '))+'</div>':'')+'</div><div class="fare">'+money0(e.amount,cur)+'</div></div>'+
+      routeHtml+
+      (meta.length?'<div class="bpmeta">'+meta.join('')+'</div>':'')+
+      (pax?'<div class="bppax">'+pax+'</div>':'')+
+      '<div class="bpf"><span class="pb">Paid by '+esc(payerLabel(e))+' · '+per+' each</span>'+pdf+'</div></div>';
   });
   shell('trips',body,head);
   $('#bkt').onclick=renderDashboard;

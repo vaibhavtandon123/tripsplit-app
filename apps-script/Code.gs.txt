@@ -336,6 +336,20 @@ function api_setMemberKid(p){
   updateWhere_('Members','memberId',p.memberId,{isKid:p.isKid?'yes':'',kidShare:p.kidShare||''});
   backup_(); return getTripData_(trip.tripId,me);
 }
+function api_setMemberHead(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireMember_(p.tripId,me);
+  var members=readAll_('Members').filter(function(m){return m.tripId===p.tripId;});
+  var mine=members.filter(function(m){return m.memberId===p.memberId;})[0]; if(!mine) throw 'Member not found.';
+  var head=String(p.headId||'');
+  if(head){
+    if(head===p.memberId) throw 'Cannot link a person to themselves.';
+    var target=members.filter(function(m){return m.memberId===head;})[0]; if(!target) throw 'That person is not in this trip.';
+    if(String(target.headId||'')) throw 'That person is already linked under someone else.';
+    if(members.some(function(m){return String(m.headId||'')===p.memberId;})) throw 'This person already covers others — unlink those first.';
+  }
+  updateWhere_('Members','memberId',p.memberId,{headId:head});
+  backup_(); return getTripData_(trip.tripId,me);
+}
 
 function api_myTrips(token){
   var me=userByToken_(token), members=readAll_('Members'), myIds={};
@@ -590,7 +604,7 @@ function shareMap_(e,memById){
 
 function computeBalances_(members,expenses,payments){
   var memById={},headOf={},nameOf={},paid={},owe={};
-  members.forEach(function(m){ memById[m.memberId]=m; headOf[m.memberId]=m.isFamily?m.headId:m.memberId; nameOf[m.memberId]=m.name; if(!m.isFamily){paid[m.memberId]=0;owe[m.memberId]=0;} });
+  members.forEach(function(m){ memById[m.memberId]=m; headOf[m.memberId]=m.headId?m.headId:m.memberId; nameOf[m.memberId]=m.name; if(!m.headId){paid[m.memberId]=0;owe[m.memberId]=0;} });
   var byCategory={},byDay={},total=0;
   expenses.filter(function(e){return !e.deleted;}).forEach(function(e){
     total+=e.amount;

@@ -969,9 +969,13 @@ function openShare(){
  * ========================================================= */
 function openPeople(){
   var d=S.data,t=d.trip,canAdd=(t.isCreator||t.isAdmin)&&!t.locked;
+  var byId={};d.members.forEach(function(x){byId[x.memberId]=x;});
   var list=d.members.map(function(m){
-    var tag=(m.isFamily?' <span class="pill">family</span>':'')+(m.isKid?' <span class="pill">kid'+(m.kidShare&&m.kidShare!=='full'?' · '+m.kidShare:'')+'</span>':'');
-    return '<div class="chk"><div class="avatar">'+esc((m.name||'?').charAt(0).toUpperCase())+'</div><span class="nm">'+esc(m.name)+tag+'</span>'+(canAdd?'<button class="btn out sm kidBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">'+(m.isKid?'Edit kid':'Mark as kid')+'</button>':'')+'</div>';
+    var hn=m.headId&&byId[m.headId]?byId[m.headId].name:'';
+    var tag=(m.isFamily?' <span class="pill">family</span>':'')+(m.isKid?' <span class="pill">kid'+(m.kidShare&&m.kidShare!=='full'?' · '+m.kidShare:'')+'</span>':'')+(hn?' <span class="pill">💳 '+esc(hn)+' pays</span>':'');
+    var btn='';
+    if(canAdd){ if(m.userId) btn='<button class="btn out sm linkBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Pay under</button>'; else btn='<button class="btn out sm kidBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">'+(m.isKid?'Edit kid':'Mark as kid')+'</button>'; }
+    return '<div class="chk"><div class="avatar">'+esc((m.name||'?').charAt(0).toUpperCase())+'</div><span class="nm">'+esc(m.name)+tag+'</span>'+btn+'</div>';
   }).join('');
   var html='<div class="card" style="padding:4px 16px">'+list+'</div>\
     <div class="card" style="margin-top:14px;padding:12px 16px;font-size:13px"><b>Invite link & code</b><div class="muted" style="margin-top:4px">Code: <b style="letter-spacing:1px">'+esc(t.code)+'</b></div><button class="btn out sm" id="copyInvite" style="margin-top:10px">Copy invite link</button></div>';
@@ -984,7 +988,22 @@ function openPeople(){
     if($('#addUBtn'))$('#addUBtn').onclick=function(){var u=$('#addU').value.trim();if(!u)return toast('Enter a username');loading(true);call('api_addMemberByUsername',{token:S.token,tripId:t.tripId,username:u}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
     if($('#addFBtn'))$('#addFBtn').onclick=function(){var n=$('#addF').value.trim();if(!n)return toast('Enter a name');loading(true);call('api_addFamilyMember',{token:S.token,tripId:t.tripId,name:n}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
     Array.prototype.forEach.call(document.querySelectorAll('.kidBtn'),function(b){b.onclick=function(){openKidSheet(b.getAttribute('data-m'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('.linkBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
   });
+}
+function openLinkHead(memberId){
+  var d=S.data,m=d.members.filter(function(x){return x.memberId===memberId;})[0]||{};
+  var cands=d.members.filter(function(x){return x.memberId!==memberId && x.userId && !x.headId;});
+  var rows=cands.map(function(c){return '<div class="chk linkOpt" data-h="'+c.memberId+'"><div class="avatar">'+esc((c.name||'?').charAt(0).toUpperCase())+'</div><span class="nm">'+esc(c.name)+'</span>'+(m.headId===c.memberId?'<span class="ck">✓</span>':'')+'</div>';}).join('');
+  sheetModal('Who pays for '+esc(m.name)+'?',
+    '<p class="muted">'+esc(m.name)+' will still show in the trip, but their share and settle-up will go to the person you pick.</p>\
+     <div class="card" style="padding:4px 16px">'+(rows||'<div class="muted" style="padding:10px">No eligible people. Add a user first.</div>')+'</div>\
+     '+(m.headId?'<button class="btn out sm" id="unlinkBtn" style="margin-top:12px">Remove link ('+esc(m.name)+' pays own)</button>':''),
+    function(){
+      function setHead(h){loading(true);call('api_setMemberHead',{token:S.token,tripId:S.trip.tripId,memberId:memberId,headId:h}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Saved');}).catch(function(e){loading(false);toast(e);});}
+      Array.prototype.forEach.call(document.querySelectorAll('.linkOpt'),function(r){r.onclick=function(){setHead(r.getAttribute('data-h'));};});
+      if($('#unlinkBtn'))$('#unlinkBtn').onclick=function(){setHead('');};
+    });
 }
 function openKidSheet(memberId){
   var m=S.data.members.filter(function(x){return x.memberId===memberId;})[0]||{};

@@ -344,8 +344,8 @@ function paintTrips(list){
 /* ---- Create / Join chooser (clean premium) ---- */
 function openStart(){
   sheetModal('New trip',
-    '<div class="choice" id="cJoin"><div class="ic">🔗</div><div class="tx"><b>Join a trip</b><span class="muted">Enter a code or open an invite link</span></div><div class="chev">›</div></div>\
-     <div class="choice choice-primary" id="cCreate"><div class="ic">✈️</div><div class="tx"><b>Create a new trip</b><span class="muted">Start a fresh trip and invite friends</span></div><div class="chev">›</div></div>',
+    '<div class="choice choice-primary" id="cJoin"><div class="ic">🔗</div><div class="tx"><b>Join a trip</b><span class="muted">Enter a code or open an invite link</span></div><div class="chev">›</div></div>\
+     <div class="choice" id="cCreate"><div class="ic">✈️</div><div class="tx"><b>Create a new trip</b><span class="muted">Only if you are starting a brand-new trip</span></div><div class="chev">›</div></div>',
     function(){$('#cCreate').onclick=function(){closeModal();openNewTrip();};$('#cJoin').onclick=function(){closeModal();openJoinTrip();};});
 }
 

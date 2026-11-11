@@ -974,7 +974,7 @@ function openPeople(){
     var hn=m.headId&&byId[m.headId]?byId[m.headId].name:'';
     var tag=(m.isFamily?' <span class="pill">family</span>':'')+(m.isKid?' <span class="pill">kid'+(m.kidShare&&m.kidShare!=='full'?' · '+m.kidShare:'')+'</span>':'')+(hn?' <span class="pill">💳 '+esc(hn)+' pays</span>':'');
     var btn='';
-    if(canAdd){ if(m.userId) btn='<button class="btn out sm linkBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Pay under</button>'; else btn='<button class="btn out sm kidBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">'+(m.isKid?'Edit kid':'Mark as kid')+'</button>'; }
+    if(canAdd){ if(m.userId) btn='<button class="btn out sm linkBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Pay under</button>'; else btn='<button class="btn out sm headBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Who pays</button><button class="btn out sm kidBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px;margin-left:6px">'+(m.isKid?'Edit kid':'Mark as kid')+'</button>'; }
     return '<div class="chk"><div class="avatar">'+esc((m.name||'?').charAt(0).toUpperCase())+'</div><span class="nm">'+esc(m.name)+tag+'</span>'+btn+'</div>';
   }).join('');
   var html='<div class="card" style="padding:4px 16px">'+list+'</div>\
@@ -989,6 +989,7 @@ function openPeople(){
     if($('#addFBtn'))$('#addFBtn').onclick=function(){var n=$('#addF').value.trim();if(!n)return toast('Enter a name');loading(true);call('api_addFamilyMember',{token:S.token,tripId:t.tripId,name:n}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
     Array.prototype.forEach.call(document.querySelectorAll('.kidBtn'),function(b){b.onclick=function(){openKidSheet(b.getAttribute('data-m'));};});
     Array.prototype.forEach.call(document.querySelectorAll('.linkBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('.headBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
   });
 }
 function openLinkHead(memberId){
@@ -998,7 +999,7 @@ function openLinkHead(memberId){
   sheetModal('Who pays for '+esc(m.name)+'?',
     '<p class="muted">'+esc(m.name)+' will still show in the trip, but their share and settle-up will go to the person you pick.</p>\
      <div class="card" style="padding:4px 16px">'+(rows||'<div class="muted" style="padding:10px">No eligible people. Add a user first.</div>')+'</div>\
-     '+(m.headId?'<button class="btn out sm" id="unlinkBtn" style="margin-top:12px">Remove link ('+esc(m.name)+' pays own)</button>':''),
+     '+((m.headId&&m.userId)?'<button class="btn out sm" id="unlinkBtn" style="margin-top:12px">Remove link ('+esc(m.name)+' pays own)</button>':''),
     function(){
       function setHead(h){loading(true);call('api_setMemberHead',{token:S.token,tripId:S.trip.tripId,memberId:memberId,headId:h}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Saved');}).catch(function(e){loading(false);toast(e);});}
       Array.prototype.forEach.call(document.querySelectorAll('.linkOpt'),function(r){r.onclick=function(){setHead(r.getAttribute('data-h'));};});

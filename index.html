@@ -1021,13 +1021,13 @@ function renderAccount(){
   var body='<div class="card" style="display:flex;align-items:center;gap:14px"><div class="avatar" id="accAv" style="width:54px;height:54px;font-size:22px">'+esc((u.fullName||'?').charAt(0).toUpperCase())+'</div><div style="flex:1"><b style="font-size:17px">'+esc(u.fullName||'')+'</b><div class="muted">@'+esc(u.username||'')+'</div><div class="muted">'+esc(u.email||'')+'</div></div></div>'+
     (u.isAdmin?'<div class="banner">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
-    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px" id="verLine">TripSplit</div>';
+    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px" id="verLine">TripSplit<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
   shell('account',body,head);
   if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
   $('#logoutBtn').onclick=function(){if(confirm('Log out?'))logout();};
   if($('#adminBtn'))$('#adminBtn').onclick=openAdmin;
-  call('api_version').then(function(v){if($('#verLine'))$('#verLine').textContent=v.name+' v'+v.version;});
+  call('api_version').then(function(v){if($('#verLine'))$('#verLine').innerHTML=esc(v.name+' v'+v.version)+'<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div>';});
 }
 function openAdmin(){
   loading(true);

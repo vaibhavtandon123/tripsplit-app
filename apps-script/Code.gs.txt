@@ -1,0 +1,743 @@
+/*************************************************************
+ * TRIP EXPENSE TRACKER  —  Code.gs  (backend)
+ * Google Apps Script web app. Data in a Google Sheet.
+ * Folder: My Apps / Trip Expense Tracker / ...
+ *************************************************************/
+
+var APP_VERSION = '2.0.0';
+var APP_NAME    = 'TripSplit';
+
+/* ---- Admin (master) account, created on first setup ---- */
+var ADMIN_USERNAME = 'vaibhavtandon';
+var ADMIN_PASSWORD = 'TMDsv#axhpt4841l';
+var ADMIN_EMAIL    = 'vaibhavtandon123@gmail.com';
+var ADMIN_NAME     = 'Vaibhav Tandon';
+
+/* ---- Drive folder names ---- */
+var ROOT_FOLDER='My Apps', APP_FOLDER='Trip Expense Tracker';
+var SUB_DB='1. Database', SUB_RECEIPTS='2. Receipts', SUB_REPORTS='3. Reports',
+    SUB_PHOTOS='4. Profile Photos', SUB_UPDATES='5. App Updates', SUB_BACKUP='6. Backup';
+var SS_NAME='Trip Expense Tracker — Database';
+var TOKEN_DAYS=30;
+var DEFAULT_CATS=['Food','Travel','Stay','Shopping','Tickets','Fuel','Other'];
+
+/* ============================================================
+ *  WEB ENTRY
+ * ========================================================== */
+function doGet(e){
+  return HtmlService.createTemplateFromFile('Index').evaluate()
+    .setTitle(APP_NAME)
+    .addMetaTag('viewport','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+function include(n){ return HtmlService.createHtmlOutputFromFile(n).getContent(); }
+function getWebAppUrl(){ return ScriptApp.getService().getUrl(); }
+
+// JSON API router — lets the Cloudflare frontend call api_* functions over HTTP.
+function doPost(e){
+  var out;
+  try{
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var fn = req.fn, arg = req.arg;
+    if(!/^api_/.test(fn) || typeof globalThis[fn] !== 'function') throw 'Unknown action';
+    out = { r: globalThis[fn](arg) };
+  }catch(err){
+    out = { e: (err && err.message) ? err.message : String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ============================================================
+ *  DRIVE + SHEET SETUP
+ * ========================================================== */
+function childFolder_(parent,name){ var it=parent.getFoldersByName(name); return it.hasNext()?it.next():parent.createFolder(name); }
+function appFolder_(){ return childFolder_(childFolder_(DriveApp.getRootFolder(),ROOT_FOLDER),APP_FOLDER); }
+function subFolder_(name){ return childFolder_(appFolder_(),name); }
+
+var _ensured=false;  // run ensureSheets_ once per execution (prevents recursion via readAll_)
+function db_(){
+  var props=PropertiesService.getScriptProperties(), id=props.getProperty('SS_ID'), ss;
+  if(id){ try{ ss=SpreadsheetApp.openById(id); }catch(e){ ss=null; } }
+  if(!ss){
+    var folder=subFolder_(SUB_DB), it=folder.getFilesByName(SS_NAME);
+    if(it.hasNext()) ss=SpreadsheetApp.open(it.next());
+    else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
+    props.setProperty('SS_ID',ss.getId());
+  }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='5'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','5'); } }
+  return ss;
+}
+
+var SCHEMA={
+  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt'],
+  Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel'],
+  Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
+  Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON'],
+  Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt'],
+  Activity:['id','tripId','actorId','actorName','action','detail','at']
+};
+
+function ensureSheets_(ss){
+  Object.keys(SCHEMA).forEach(function(name){
+    var sh=ss.getSheetByName(name);
+    if(!sh){ sh=ss.insertSheet(name); sh.getRange(1,1,1,SCHEMA[name].length).setValues([SCHEMA[name]]); sh.setFrozenRows(1); }
+    else {
+      var lastCol=Math.max(1,sh.getLastColumn());
+      var have=sh.getRange(1,1,1,lastCol).getValues()[0].map(String);
+      SCHEMA[name].forEach(function(col){
+        if(have.indexOf(col)<0){ sh.getRange(1,sh.getLastColumn()+1).setValue(col); have.push(col); }
+      });
+      sh.setFrozenRows(1);
+    }
+  });
+  var def=ss.getSheetByName('Sheet1'); if(def && def.getLastRow()===0) ss.deleteSheet(def);
+  // Keep free-text date columns as PLAIN TEXT so Sheets doesn't auto-convert them to Date objects.
+  [['Expenses',['spentOn']],['Trips',['monthLabel','startDate','endDate']]].forEach(function(pair){
+    var sh=ss.getSheetByName(pair[0]); if(!sh) return;
+    var hdr=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0], idx={}; hdr.forEach(function(c,i){ idx[String(c)]=i; });
+    pair[1].forEach(function(col){ if(idx[col]!=null){ try{ sh.getRange(1,idx[col]+1,sh.getMaxRows(),1).setNumberFormat('@'); }catch(e){} } });
+  });
+  if(readAll_('Users').length===0) seedAdmin_();
+}
+function seedAdmin_(){
+  var salt=Utilities.getUuid();
+  appendRow_('Users',{userId:'u-admin',fullName:ADMIN_NAME,username:ADMIN_USERNAME.toLowerCase(),
+    passHash:hash_(ADMIN_PASSWORD,salt),salt:salt,email:ADMIN_EMAIL,mobile:'',photoId:'',tokenHash:'',tokenExp:'',createdAt:now_()});
+}
+
+/* ============================================================
+ *  GENERIC SHEET HELPERS  (header-based, safe to add columns)
+ * ========================================================== */
+function sheet_(name){ return db_().getSheetByName(name); }
+function now_(){ return new Date().toISOString(); }
+// Dates read back from Sheets can be Date objects — coerce to plain strings so the response serializes.
+function dStr_(v){ if(v instanceof Date) return v.toISOString(); return String(v==null?'':v); }
+function dayStr_(v){ if(v instanceof Date){ return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd'); } return String(v==null?'':v).slice(0,10); }
+function monthStr_(v){ if(v instanceof Date){ return Utilities.formatDate(v, Session.getScriptTimeZone(), 'MMMM yyyy'); } return String(v==null?'':v); }
+function headerIdx_(sh){ var cols=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0], m={}; cols.forEach(function(c,i){ if(c!=='') m[String(c)]=i; }); return m; }
+
+function readAll_(name){
+  var sh=sheet_(name), last=sh.getLastRow(); if(last<2) return [];
+  var idx=headerIdx_(sh), vals=sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
+  return vals.map(function(r){ var o={}; SCHEMA[name].forEach(function(c){ o[c]=(idx[c]!=null)?r[idx[c]]:''; }); return o; });
+}
+function appendRow_(name,obj){
+  var sh=sheet_(name), idx=headerIdx_(sh), width=sh.getLastColumn(), row=[];
+  for(var i=0;i<width;i++) row.push('');
+  SCHEMA[name].forEach(function(c){ if(idx[c]!=null && obj[c]!==undefined) row[idx[c]]=obj[c]; });
+  sh.appendRow(row);
+}
+function updateWhere_(name,keyCol,keyVal,patch){
+  var sh=sheet_(name), idx=headerIdx_(sh), last=sh.getLastRow(); if(last<2) return false;
+  var width=sh.getLastColumn(), rng=sh.getRange(2,1,last-1,width), vals=rng.getValues(), ki=idx[keyCol], done=false;
+  for(var r=0;r<vals.length;r++){
+    if(String(vals[r][ki])===String(keyVal)){
+      Object.keys(patch).forEach(function(c){ if(idx[c]!=null) vals[r][idx[c]]=patch[c]; });
+      done=true; break;
+    }
+  }
+  if(done) rng.setValues(vals);
+  return done;
+}
+
+/* ============================================================
+ *  AUTH
+ * ========================================================== */
+function hash_(t,s){ return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,t+'::'+s).map(function(b){return('0'+(b&0xFF).toString(16)).slice(-2);}).join(''); }
+function newToken_(){ return Utilities.getUuid()+Utilities.getUuid(); }
+
+function api_signup(p){
+  p=p||{}; var u=(p.username||'').trim().toLowerCase();
+  if(!u||!p.password||!p.fullName) throw 'Please fill name, username and password.';
+  if(u.length<3) throw 'Username must be at least 3 letters.';
+  var users=readAll_('Users');
+  if(users.some(function(x){return String(x.username).toLowerCase()===u;})) throw 'That username is already taken.';
+  if(p.email && users.some(function(x){return String(x.email).toLowerCase()===String(p.email).toLowerCase();})) throw 'That email is already registered.';
+  var salt=Utilities.getUuid(), id='u-'+Utilities.getUuid().slice(0,8);
+  var photoId=p.photo?savePhoto_(p.photo,id):'';
+  appendRow_('Users',{userId:id,fullName:p.fullName.trim(),username:u,passHash:hash_(p.password,salt),salt:salt,
+    email:(p.email||'').trim(),mobile:(p.mobile||'').trim(),photoId:photoId,tokenHash:'',tokenExp:'',createdAt:now_()});
+  return api_login({username:u,password:p.password});
+}
+function api_login(p){
+  p=p||{}; var u=(p.username||'').trim().toLowerCase();
+  var user=readAll_('Users').filter(function(x){return String(x.username).toLowerCase()===u||String(x.email).toLowerCase()===u;})[0];
+  if(!user) throw 'No account with that username.';
+  if(hash_(p.password,user.salt)!==user.passHash) throw 'Wrong password.';
+  var token=newToken_(), exp=new Date(Date.now()+TOKEN_DAYS*864e5).toISOString();
+  updateWhere_('Users','userId',user.userId,{tokenHash:hash_(token,user.salt),tokenExp:exp});
+  return {token:token,user:publicUser_(user)};
+}
+function userByToken_(token){
+  if(!token) throw 'Please log in again.';
+  var users=readAll_('Users');
+  for(var i=0;i<users.length;i++){ var x=users[i];
+    if(x.tokenHash && hash_(token,x.salt)===x.tokenHash){
+      if(x.tokenExp && new Date(x.tokenExp)<new Date()) throw 'Session expired. Please log in again.';
+      return x;
+    }
+  }
+  throw 'Please log in again.';
+}
+function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,isAdmin:String(x.username).toLowerCase()===ADMIN_USERNAME}; }
+function api_me(token){ return publicUser_(userByToken_(token)); }
+function isAdmin_(me){ return String(me.username).toLowerCase()===ADMIN_USERNAME; }
+
+function api_forgotPassword(p){
+  var email=(p.email||'').trim().toLowerCase();
+  var user=readAll_('Users').filter(function(x){return String(x.email).toLowerCase()===email;})[0];
+  if(!user) throw 'No account with that email.';
+  var code=''+Math.floor(100000+Math.random()*900000);
+  CacheService.getScriptCache().put('reset-'+user.userId,code,900);
+  MailApp.sendEmail(user.email,APP_NAME+' — password reset code','Your reset code is: '+code+'\n\nValid for 15 minutes.');
+  return {userId:user.userId};
+}
+function api_resetPassword(p){
+  var code=CacheService.getScriptCache().get('reset-'+p.userId);
+  if(!code||code!==String(p.code)) throw 'Wrong or expired code.';
+  var user=readAll_('Users').filter(function(x){return x.userId===p.userId;})[0];
+  if(!user) throw 'Account not found.';
+  updateWhere_('Users','userId',user.userId,{passHash:hash_(p.password,user.salt)});
+  CacheService.getScriptCache().remove('reset-'+p.userId);
+  return {ok:true};
+}
+
+/* ============================================================
+ *  IMAGES / FILES
+ * ========================================================== */
+function dataToBlob_(dataUrl,name){ var m=/^data:([^;]+);base64,(.*)$/.exec(dataUrl); if(!m) throw 'Bad file.'; return Utilities.newBlob(Utilities.base64Decode(m[2]),m[1],name); }
+function shareView_(f){ try{ f.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW); }catch(e){} return f; }
+function savePhoto_(dataUrl,userId){ return shareView_(subFolder_(SUB_PHOTOS).createFile(dataToBlob_(dataUrl,'profile-'+userId+'.jpg'))).getId(); }
+function saveCover_(dataUrl,tripId){ return shareView_(subFolder_(SUB_PHOTOS).createFile(dataToBlob_(dataUrl,'cover-'+tripId+'.jpg'))).getId(); }
+function saveReceipt_(dataUrl,tripName,expenseId){ var tf=childFolder_(subFolder_(SUB_RECEIPTS),safeName_(tripName)); return shareView_(tf.createFile(dataToBlob_(dataUrl,'receipt-'+expenseId+'.jpg'))).getId(); }
+function api_image(id){ if(!id) return ''; try{ var b=DriveApp.getFileById(id).getBlob(); return 'data:'+b.getContentType()+';base64,'+Utilities.base64Encode(b.getBytes()); }catch(e){ return ''; } }
+function safeName_(s){ return String(s||'Trip').replace(/[\\\/:*?"<>|]/g,'-').slice(0,80); }
+
+/* ============================================================
+ *  TRIPS
+ * ========================================================== */
+function tripCode_(){ var A='ABCDEFGHJKLMNPQRSTUVWXYZ',N='0123456789',s=''; for(var i=0;i<3;i++)s+=A[Math.floor(Math.random()*A.length)]; for(var j=0;j<3;j++)s+=N[Math.floor(Math.random()*N.length)]; return readAll_('Trips').some(function(t){return t.code===s;})?tripCode_():s; }
+
+function api_createTrip(p){
+  var me=userByToken_(p.token); if(!p.name) throw 'Please enter a trip name.';
+  var id='t-'+Utilities.getUuid().slice(0,8);
+  appendRow_('Trips',{tripId:id,name:p.name.trim(),code:tripCode_(),currency:p.currency||'INR',budget:Number(p.budget)||0,
+    createdBy:me.userId,createdAt:now_(),startDate:p.startDate||'',endDate:p.endDate||'',status:'active',
+    cats:JSON.stringify(p.cats&&p.cats.length?p.cats:DEFAULT_CATS),coverId:p.cover?saveCover_(p.cover,id):'',locked:'',
+    catBudgets:JSON.stringify(p.catBudgets||{}),destination:(p.destination||'').trim(),monthLabel:(p.monthLabel||'').trim()});
+  addMemberRow_(id,me.userId,me.fullName,false,'','','');
+  logAct_(id,me,'created','Created trip "'+p.name.trim()+'"');
+  backup_();
+  return getTripData_(id,me);
+}
+function api_updateTrip(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireMember_(trip,me); requireUnlocked_(trip);
+  var patch={};
+  if(p.name!=null) patch.name=String(p.name).trim();
+  if(p.currency!=null) patch.currency=p.currency;
+  if(p.budget!=null) patch.budget=Number(p.budget)||0;
+  if(p.destination!=null) patch.destination=String(p.destination).trim();
+  if(p.monthLabel!=null) patch.monthLabel=String(p.monthLabel).trim();
+  if(p.catBudgets!=null) patch.catBudgets=JSON.stringify(p.catBudgets||{});
+  if(p.cats!=null) patch.cats=JSON.stringify(p.cats);
+  if(p.cover) patch.coverId=saveCover_(p.cover,trip.tripId);
+  updateWhere_('Trips','tripId',trip.tripId,patch);
+  logAct_(trip.tripId,me,'edit','Edited trip details');
+  backup_();
+  return getTripData_(trip.tripId,me);
+}
+function api_deleteTrip(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+  // soft-remove: mark status deleted + clear from lists; keep rows for backup safety
+  updateWhere_('Trips','tripId',trip.tripId,{status:'deleted'});
+  logAct_(trip.tripId,me,'delete','Deleted trip "'+trip.name+'"');
+  backup_();
+  return {ok:true};
+}
+function api_lockTrip(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+  updateWhere_('Trips','tripId',trip.tripId,{locked:'yes'});
+  logAct_(trip.tripId,me,'lock','Locked the trip');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_unlockTrip(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+  var typed=(p.confirmName||'').trim().toLowerCase();
+  var want=(trip.destination||trip.name||'').trim().toLowerCase();
+  if(typed!==want) throw 'Type the trip/destination name to unlock.';
+  updateWhere_('Trips','tripId',trip.tripId,{locked:''});
+  logAct_(trip.tripId,me,'unlock','Unlocked the trip');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function requireUnlocked_(trip){ if(trip.locked) throw 'This trip is locked. Unlock it to make changes.'; }
+
+function addMemberRow_(tripId,userId,displayName,isFamily,headId,isKid,kidShare){
+  appendRow_('Members',{tripId:tripId,memberId:'m-'+Utilities.getUuid().slice(0,8),userId:userId||'',displayName:displayName,
+    isFamily:isFamily?'yes':'',headId:headId||'',joinedAt:now_(),isKid:isKid?'yes':'',kidShare:kidShare||''});
+}
+function api_joinTrip(p){
+  var me=userByToken_(p.token); var code=(p.code||'').trim().toUpperCase();
+  var trip=readAll_('Trips').filter(function(t){return t.code===code && t.status!=='deleted';})[0];
+  if(!trip) throw 'No trip with that code.';
+  var members=readAll_('Members').filter(function(m){return m.tripId===trip.tripId;});
+  if(members.some(function(m){return m.userId===me.userId;})) return getTripData_(trip.tripId,me);
+  addMemberRow_(trip.tripId,me.userId,me.fullName,false,'','','');
+  logAct_(trip.tripId,me,'joined',me.fullName+' joined the trip');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_addMemberByUsername(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+  var u=(p.username||'').trim().toLowerCase();
+  var user=readAll_('Users').filter(function(x){return String(x.username).toLowerCase()===u;})[0];
+  if(!user) throw 'No user with that username.';
+  if(readAll_('Members').some(function(m){return m.tripId===trip.tripId&&m.userId===user.userId;})) throw 'Already a member.';
+  addMemberRow_(trip.tripId,user.userId,user.fullName,false,'','','');
+  logAct_(trip.tripId,me,'added','Added '+user.fullName);
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_addFamilyMember(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId);
+  var head=p.headId||(findMyMember_(trip.tripId,me.userId)||{}).memberId;
+  addMemberRow_(trip.tripId,'',(p.name||'').trim(),true,head,p.isKid?'yes':'',p.kidShare||'');
+  logAct_(trip.tripId,me,'added','Added member "'+(p.name||'').trim()+'"');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_setMemberKid(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireTripCreatorOrAdmin_(trip,me);
+  updateWhere_('Members','memberId',p.memberId,{isKid:p.isKid?'yes':'',kidShare:p.kidShare||''});
+  backup_(); return getTripData_(trip.tripId,me);
+}
+
+function api_myTrips(token){
+  var me=userByToken_(token), members=readAll_('Members'), myIds={};
+  members.forEach(function(m){ if(m.userId===me.userId) myIds[m.tripId]=true; });
+  var admin=isAdmin_(me), exp=readAll_('Expenses');
+  return readAll_('Trips').filter(function(t){return t.status!=='deleted' && (admin||myIds[t.tripId]);}).map(function(t){
+    var te=exp.filter(function(e){return e.tripId===t.tripId&&!e.deleted;});
+    var total=te.reduce(function(s,e){return s+Number(e.amount);},0);
+    return {tripId:t.tripId,name:t.name,code:t.code,currency:t.currency,total:total,coverId:t.coverId||'',
+      locked:!!t.locked,members:members.filter(function(m){return m.tripId===t.tripId;}).length,createdAt:dStr_(t.createdAt),status:t.status};
+  }).sort(function(a,b){return a.createdAt<b.createdAt?1:-1;});
+}
+function getTrip_(id){ var t=readAll_('Trips').filter(function(x){return x.tripId===id;})[0]; if(!t) throw 'Trip not found.'; return t; }
+function findMyMember_(tripId,userId){ return readAll_('Members').filter(function(m){return m.tripId===tripId&&m.userId===userId;})[0]; }
+function isMember_(tripId,userId){ return !!findMyMember_(tripId,userId); }
+function requireTripCreatorOrAdmin_(trip,me){ if(trip.createdBy!==me.userId && !isAdmin_(me)) throw 'Only the trip creator can do this.'; }
+function requireMember_(trip,me){ if(!isMember_(trip.tripId,me.userId) && !isAdmin_(me)) throw 'Join this trip first.'; }
+function deleteWhere_(name,keyCol,keyVal){
+  var sh=sheet_(name), idx=headerIdx_(sh), last=sh.getLastRow(); if(last<2) return false;
+  var ki=idx[keyCol], vals=sh.getRange(2,1,last-1,sh.getLastColumn()).getValues();
+  for(var r=0;r<vals.length;r++){ if(String(vals[r][ki])===String(keyVal)){ sh.deleteRow(r+2); return true; } }
+  return false;
+}
+function api_leaveTrip(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId);
+  if(trip.createdBy===me.userId && !isAdmin_(me)) throw 'You created this trip — delete it instead of leaving.';
+  var mine=findMyMember_(trip.tripId,me.userId); if(!mine) throw 'You are not in this trip.';
+  deleteWhere_('Members','memberId',mine.memberId);
+  logAct_(trip.tripId,me,'left',me.fullName+' left the trip');
+  backup_(); return {ok:true};
+}
+
+/* ============================================================
+ *  EXPENSES
+ * ========================================================== */
+function normalizePayers_(p,amount){
+  // returns {memberId: amount}. Accepts p.payers (map or array) or single p.paidBy.
+  var out={};
+  if(p.payers && typeof p.payers==='object' && !Array.isArray(p.payers)){
+    Object.keys(p.payers).forEach(function(k){ var v=Number(p.payers[k])||0; if(v>0) out[k]=v; });
+  } else if(p.paidBy){ out[p.paidBy]=Number(amount)||0; }
+  return out;
+}
+function api_addExpense(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  if(!isMember_(trip.tripId,me.userId) && !isAdmin_(me)) throw 'Join this trip first.';
+  var id='e-'+Utilities.getUuid().slice(0,8);
+  var receiptId=p.receipt?saveReceipt_(p.receipt,trip.name,id):'';
+  var amount=Number(p.amount)||0;
+  appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:(p.description||'').trim(),category:p.category||'Other',
+    amount:amount,currency:trip.currency,paidBy:p.paidBy||'',splitType:p.splitType||'equal',splitJSON:JSON.stringify(p.split||{}),
+    receiptId:receiptId,addedBy:me.userId,addedAt:p.clientTime||now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
+    payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),spentOn:p.spentOn||(p.clientTime||now_()).slice(0,10),
+    ticketJSON:p.ticket?JSON.stringify(p.ticket):'',stayJSON:p.stay?JSON.stringify(p.stay):''});
+  logAct_(trip.tripId,me,'add','Added "'+(p.description||'').trim()+'" ('+fmtMoney_(amount,trip.currency)+')');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_editExpense(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  var e=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId;})[0]; if(!e) throw 'Expense not found.';
+  requireInExpense_(e,me);
+  var amount=Number(p.amount)||0;
+  var patch={description:(p.description||'').trim(),category:p.category||e.category,amount:amount,paidBy:p.paidBy||'',
+    splitType:p.splitType||e.splitType,splitJSON:JSON.stringify(p.split||{}),editedBy:me.userId,editedAt:now_(),
+    payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),stayJSON:p.stay?JSON.stringify(p.stay):''};
+  if(p.spentOn) patch.spentOn=p.spentOn;
+  if(p.receipt) patch.receiptId=saveReceipt_(p.receipt,trip.name,e.expenseId);
+  updateWhere_('Expenses','expenseId',e.expenseId,patch);
+  logAct_(trip.tripId,me,'edit','Edited "'+patch.description+'"');
+  backup_(); return getTripData_(trip.tripId,me);
+}
+function api_deleteExpense(p){
+  var me=userByToken_(p.token); var e=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId;})[0]; if(!e) throw 'Expense not found.';
+  var trip=getTrip_(e.tripId); requireUnlocked_(trip); requireInExpense_(e,me);
+  updateWhere_('Expenses','expenseId',e.expenseId,{deleted:'yes',deletedBy:me.userId,deletedAt:now_()});
+  logAct_(e.tripId,me,'delete','Deleted "'+e.description+'"');
+  backup_(); return getTripData_(e.tripId,me);
+}
+function api_restoreExpense(p){
+  var me=userByToken_(p.token); var e=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId;})[0]; if(!e) throw 'Expense not found.';
+  var trip=getTrip_(e.tripId); requireUnlocked_(trip); requireInExpense_(e,me);
+  updateWhere_('Expenses','expenseId',e.expenseId,{deleted:'',deletedBy:'',deletedAt:''});
+  logAct_(e.tripId,me,'restore','Restored "'+e.description+'"');
+  backup_(); return getTripData_(e.tripId,me);
+}
+function requireInExpense_(e,me){
+  if(isAdmin_(me)) return;
+  var split={}; try{ split=JSON.parse(e.splitJSON||'{}'); }catch(x){}
+  var payers={}; try{ payers=JSON.parse(e.payersJSON||'{}'); }catch(x){}
+  var my=(findMyMember_(e.tripId,me.userId)||{}).memberId;
+  if(my && (split[my]!==undefined || payers[my]!==undefined || e.paidBy===my)) return;
+  throw 'Only people in this expense can edit or delete it.';
+}
+
+/* ============================================================
+ *  TRAVEL TICKETS  (train / flight / bus PDF -> parsed)
+ * ========================================================== */
+// Convert a PDF blob to text via Drive OCR/convert (needs UrlFetch scope).
+function pdfToText_(blob){
+  try{
+    var token=ScriptApp.getOAuthToken();
+    var meta={name:'tmp-'+Utilities.getUuid(),mimeType:'application/vnd.google-apps.document'};
+    var boundary='b'+Utilities.getUuid();
+    var pre=Utilities.newBlob('--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/pdf\r\n\r\n').getBytes();
+    var post=Utilities.newBlob('\r\n--'+boundary+'--').getBytes();
+    var payload=pre.concat(blob.getBytes()).concat(post);
+    var res=UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&ocrLanguage=en',
+      {method:'post',contentType:'multipart/related; boundary='+boundary,payload:payload,headers:{Authorization:'Bearer '+token},muteHttpExceptions:true});
+    var id=(JSON.parse(res.getContentText())||{}).id; if(!id) return '';
+    var text=''; try{ text=DocumentApp.openById(id).getBody().getText(); }catch(e){}
+    try{ DriveApp.getFileById(id).setTrashed(true); }catch(e){}
+    return text;
+  }catch(e){ return ''; }
+}
+function parseTicketText_(text){
+  var out={mode:'',pnr:'',train:'',trainNo:'',route:'',from:'',to:'',date:'',cls:'',fare:0,passengers:[]};
+  if(!text) return out;
+  var T=text.replace(/ /g,' ');
+  if(/IRCTC|Indian Railway|Reservation Slip|Coach|Berth|SLEEPER|Railway/i.test(T)) out.mode='train';
+  else if(/Boarding Pass|Flight|Airlines|Indigo|Air India|Vistara|SpiceJet|Akasa/i.test(T)) out.mode='flight';
+  else if(/\bBus\b|redBus|AbhiBus|Boarding Point|Sleeper Bus/i.test(T)) out.mode='bus';
+  var pnr=T.match(/PNR[^0-9]{0,40}?(\d{10})/i) || T.match(/(?:^|[^0-9])(\d{10})(?:[^0-9]|$)/);
+  if(pnr) out.pnr=pnr[1];
+  var trn=T.match(/\b(\d{5})\s*\/\s*([A-Z][A-Z0-9().&' ]+?(?:EXP(?:RESS)?|MAIL|SPL|SPECIAL|SUPERFAST|RAJDHANI|SHATABDI|DURONTO|GARIB\s?RATH|INTERCITY|HUMSAFAR|TEJAS|VANDE\s?BHARAT))\b/);
+  if(trn){ out.trainNo=trn[1]; out.train=(trn[1]+' '+trn[2]).replace(/\s+/g,' ').trim(); }
+  else { var trn2=T.match(/\b(\d{5})\s*\/\s*([A-Z][A-Z0-9().&' ]{3,40})/); if(trn2){ out.trainNo=trn2[1]; out.train=(trn2[1]+' '+trn2[2].trim()).replace(/\s+/g,' '); } }
+  var clsP=T.match(/\((1A|2A|3A|3E|2S|SL|CC|EC|FC)\)/);
+  if(clsP) out.cls=clsP[1];
+  else { var clsN=T.match(/\b(SLEEPER CLASS|THIRD AC|SECOND AC|FIRST AC|CHAIR CAR|EXECUTIVE)\b/i); if(clsN) out.cls=clsN[1]; }
+  var headT=T.split(/Passenger Details|Payment Details|INSTRUCTIONS/i)[0];
+  var sts=[], re=/([A-Z][A-Za-z.&' ]*?)\s*\(([A-Z]{2,5})\)/g, m;
+  while((m=re.exec(headT))){ var code=m[2]; if(['GN','SL','PNR','ERS','GST','NA','IR','HRS','INR','SAC'].indexOf(code)<0 && !/GENERAL|QUOTA|CLASS/i.test(m[1])) sts.push({name:m[1].trim(),code:code}); }
+  var uniq=[]; sts.forEach(function(s){ if(!uniq.length||uniq[uniq.length-1].code!==s.code) uniq.push(s); });
+  if(uniq.length>=2){ out.from=uniq[0].name+' ('+uniq[0].code+')'; out.to=uniq[uniq.length-1].name+' ('+uniq[uniq.length-1].code+')'; out.route=out.from+' → '+out.to; }
+  else if(uniq.length===1){ out.from=uniq[0].name+' ('+uniq[0].code+')'; out.route=out.from; }
+  var dt=T.match(/(?:Departure|Start Date)\*?\s*(?:\d{1,2}:\d{2})?\s*(\d{1,2}-[A-Za-z]{3,}-\d{4})/i) || T.match(/\b(\d{1,2}-[A-Za-z]{3}-\d{4})\b/);
+  if(dt) out.date=dt[1];
+  var far=T.match(/Total Fare\s*\(all inclusive\)\s*(?:Rs\.?|INR|₹)?\s*([\d,]+\.\d{2})/i)
+       || T.match(/(?:Total Fare|Total Amount|Grand Total|Amount Paid)\s*(?:\([^)]*\))?\s*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i)
+       || T.match(/Ticket Fare\s*(?:Rs\.?|INR|₹)?\s*([\d,]+\.?\d*)/i);
+  if(far) out.fare=Number(far[1].replace(/,/g,''))||0;
+  var names=[], nre=/(?:^|\n)\s*\d+\.\s+([A-Z][A-Z](?:[A-Z .]*[A-Z])?)(?=\n|\s{2,}|\s+\d|$)/g, nm;
+  while((nm=nre.exec(T))){ var nmv=nm[1].trim(); if(nmv.length>2 && !/ACRONYM|WAITLIST|QUOTA|STATUS|PRESCRIBED/i.test(nmv)) names.push(nmv); }
+  var seats=[], sre=/\b(?:CNF|RAC|WL)\s*\/\s*([A-Z]{0,3}\d{1,2})\s*\/\s*(\d{1,3})\s*\/\s*([A-Z][A-Z ]*?)(?:\n|CNF|RAC|WL|$)/g, sm, seen={};
+  while((sm=sre.exec(T))){ var key=sm[1]+'-'+sm[2]; if(!seen[key]){ seen[key]=1; seats.push({coach:sm[1],seat:sm[2],type:sm[3].trim()}); } }
+  names.forEach(function(nn,i){ var s=seats[i]||{}; out.passengers.push({name:nn,coach:s.coach||'',seat:(s.seat||'')+(s.type?' '+s.type:'')}); });
+  return out;
+}
+function api_parseTickets(p){
+  userByToken_(p.token);
+  var files=p.files||[]; // [{name, dataUrl}]
+  var trip=getTrip_(p.tripId);
+  return files.map(function(f){
+    var fileId='', parsed={mode:'',pnr:'',fare:0,passengers:[],train:'',trainNo:'',route:'',from:'',to:'',date:'',cls:''};
+    try{
+      var blob=dataToBlob_(f.dataUrl,f.name||'ticket.pdf');
+      fileId=shareView_(childFolder_(subFolder_(SUB_RECEIPTS),safeName_(trip.name)).createFile(blob)).getId();
+      parsed=parseTicketText_(pdfToText_(blob));
+    }catch(e){}
+    parsed.fileId=fileId; parsed.fileName=f.name||'ticket.pdf';
+    return parsed;
+  });
+}
+// Add one expense per ticket (custom split: each passenger owes their fare; payer = booker)
+function api_addTicketExpenses(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  (p.tickets||[]).forEach(function(tk){
+    var split={}; var total=0;
+    (tk.lines||[]).forEach(function(l){ var amt=Number(l.amount)||0; if(l.memberId){ split[l.memberId]=(split[l.memberId]||0)+amt; total+=amt; } });
+    if(total<=0 && tk.fare){ total=Number(tk.fare)||0; }
+    var id='e-'+Utilities.getUuid().slice(0,8);
+    appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:tk.description||((tk.mode||'Travel')+' ticket'+(tk.route?' — '+tk.route:'')),
+      category:'Tickets',amount:total,currency:trip.currency,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
+      receiptId:tk.fileId||'',addedBy:me.userId,addedAt:now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
+      payersJSON:JSON.stringify(tk.payerId?(function(){var o={};o[tk.payerId]=total;return o;})():{}),
+      note:tk.note||'',spentOn:(tk.date||now_().slice(0,10)),
+      ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})});
+    logAct_(trip.tripId,me,'add','Added '+(tk.mode||'travel')+' ticket ('+fmtMoney_(total,trip.currency)+')');
+  });
+  backup_(); return getTripData_(trip.tripId,me);
+}
+
+/* ============================================================
+ *  PAYMENTS
+ * ========================================================== */
+function api_recordPayment(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  appendRow_('Payments',{paymentId:'p-'+Utilities.getUuid().slice(0,8),tripId:trip.tripId,fromId:p.fromId,toId:p.toId,
+    amount:Number(p.amount)||0,method:p.method||'cash',recordedBy:me.userId,recordedAt:now_()});
+  logAct_(trip.tripId,me,'payment','Recorded payment '+fmtMoney_(p.amount,trip.currency));
+  backup_(); return getTripData_(trip.tripId,me);
+}
+
+/* ============================================================
+ *  TRIP DATA + BALANCES
+ * ========================================================== */
+function api_tripData(p){ return getTripData_(p.tripId,userByToken_(p.token)); }
+
+function getTripData_(tripId,me){
+  var trip=getTrip_(tripId);
+  var members=readAll_('Members').filter(function(m){return m.tripId===tripId;});
+  var usersById={}; readAll_('Users').forEach(function(u){ usersById[u.userId]=u; });
+  var mem=members.map(function(m){ var u=m.userId?usersById[m.userId]:null;
+    return {memberId:m.memberId,userId:m.userId,name:m.displayName,isFamily:!!m.isFamily,headId:m.headId,
+      isKid:!!m.isKid,kidShare:m.kidShare||'',photoId:u?u.photoId:'',mobile:u?u.mobile:'',email:u?u.email:'',
+      lat:(m.lat===''||m.lat==null)?null:Number(m.lat),lng:(m.lng===''||m.lng==null)?null:Number(m.lng),locAt:dStr_(m.locAt)}; });
+  var expenses=readAll_('Expenses').filter(function(e){return e.tripId===tripId;}).map(function(e){
+    var split={}; try{split=JSON.parse(e.splitJSON||'{}');}catch(x){}
+    var payers={}; try{payers=JSON.parse(e.payersJSON||'{}');}catch(x){}
+    if(!Object.keys(payers).length && e.paidBy) payers[e.paidBy]=Number(e.amount);
+    var ticket=null; try{ ticket=e.ticketJSON?JSON.parse(e.ticketJSON):null; }catch(x){}
+    var stay=null; try{ stay=e.stayJSON?JSON.parse(e.stayJSON):null; }catch(x){}
+    return {expenseId:e.expenseId,description:e.description,category:e.category,amount:Number(e.amount),paidBy:e.paidBy,
+      payers:payers,splitType:e.splitType,split:split,note:e.note||'',spentOn:dayStr_(e.spentOn||e.addedAt),
+      ticket:ticket,stay:stay,receiptId:e.receiptId,addedBy:e.addedBy,addedAt:dStr_(e.addedAt),editedBy:e.editedBy,editedAt:dStr_(e.editedAt),
+      deleted:!!e.deleted,deletedBy:e.deletedBy,deletedAt:dStr_(e.deletedAt)};
+  }).sort(function(a,b){return a.addedAt<b.addedAt?1:-1;});
+  var payments=readAll_('Payments').filter(function(x){return x.tripId===tripId;}).map(function(x){
+    return {paymentId:x.paymentId,fromId:x.fromId,toId:x.toId,amount:Number(x.amount),method:x.method,recordedBy:x.recordedBy,recordedAt:dStr_(x.recordedAt)}; });
+  var calc=computeBalances_(mem,expenses,payments);
+  var cats=[]; try{cats=JSON.parse(trip.cats||'[]');}catch(x){cats=DEFAULT_CATS;}
+  var catBudgets={}; try{catBudgets=JSON.parse(trip.catBudgets||'{}');}catch(x){}
+  return {
+    trip:{tripId:trip.tripId,name:String(trip.name||''),code:String(trip.code||''),currency:trip.currency,budget:Number(trip.budget),
+      createdBy:trip.createdBy,status:trip.status,startDate:dStr_(trip.startDate),endDate:dStr_(trip.endDate),cats:cats,
+      coverId:trip.coverId||'',locked:!!trip.locked,catBudgets:catBudgets,destination:String(trip.destination||''),monthLabel:monthStr_(trip.monthLabel),
+      isCreator:trip.createdBy===me.userId,isAdmin:isAdmin_(me),webUrl:getWebAppUrl()},
+    me:{userId:me.userId,memberId:(findMyMember_(tripId,me.userId)||{}).memberId||''},
+    members:mem,expenses:expenses,payments:payments,
+    balances:calc.balances,settle:calc.settle,byCategory:calc.byCategory,byDay:calc.byDay,total:calc.total
+  };
+}
+
+function kidWeight_(m){ if(!m.isKid) return 1; if(m.kidShare==='none') return 0; if(m.kidShare==='half') return 0.5; return 1; }
+
+function shareMap_(e,memById){
+  var out={},keys=Object.keys(e.split||{}); if(!keys.length) return out;
+  if(e.splitType==='equal'){
+    // weighted by kid settings; split value may itself be an override weight (1/0.5/0)
+    var weights={},sum=0;
+    keys.forEach(function(k){
+      var w; var ov=Number(e.split[k]);
+      if(ov===0||ov===0.5||ov===1) w=ov; else w=kidWeight_(memById[k]||{});
+      weights[k]=w; sum+=w;
+    });
+    if(sum<=0){ keys.forEach(function(k){ out[k]=0; }); return out; }
+    keys.forEach(function(k){ out[k]=e.amount*weights[k]/sum; });
+  } else if(e.splitType==='percent'){ keys.forEach(function(k){ out[k]=e.amount*Number(e.split[k])/100; }); }
+  else { keys.forEach(function(k){ out[k]=Number(e.split[k]); }); }
+  return out;
+}
+
+function computeBalances_(members,expenses,payments){
+  var memById={},headOf={},nameOf={},paid={},owe={};
+  members.forEach(function(m){ memById[m.memberId]=m; headOf[m.memberId]=m.isFamily?m.headId:m.memberId; nameOf[m.memberId]=m.name; if(!m.isFamily){paid[m.memberId]=0;owe[m.memberId]=0;} });
+  var byCategory={},byDay={},total=0;
+  expenses.filter(function(e){return !e.deleted;}).forEach(function(e){
+    total+=e.amount;
+    byCategory[e.category]=(byCategory[e.category]||0)+e.amount;
+    var day=e.spentOn||String(e.addedAt).slice(0,10); byDay[day]=(byDay[day]||0)+e.amount;
+    Object.keys(e.payers||{}).forEach(function(pid){ var h=headOf[pid]||pid; if(paid[h]!=null) paid[h]+=Number(e.payers[pid])||0; });
+    var sh=shareMap_(e,memById);
+    Object.keys(sh).forEach(function(mid){ var h=headOf[mid]||mid; if(owe[h]!=null) owe[h]+=sh[mid]; });
+  });
+  var bal={}; Object.keys(paid).forEach(function(h){ bal[h]=round2_(paid[h]-owe[h]); });
+  payments.forEach(function(p){ var f=headOf[p.fromId]||p.fromId,t=headOf[p.toId]||p.toId; if(bal[f]!=null)bal[f]=round2_(bal[f]+p.amount); if(bal[t]!=null)bal[t]=round2_(bal[t]-p.amount); });
+  var cred=[],debt=[];
+  Object.keys(bal).forEach(function(h){ if(bal[h]>0.5)cred.push({id:h,v:bal[h]}); else if(bal[h]<-0.5)debt.push({id:h,v:-bal[h]}); });
+  cred.sort(function(a,b){return b.v-a.v;}); debt.sort(function(a,b){return b.v-a.v;});
+  var settle=[],i=0,j=0;
+  while(i<debt.length&&j<cred.length){ var x=Math.min(debt[i].v,cred[j].v);
+    settle.push({fromId:debt[i].id,fromName:nameOf[debt[i].id],toId:cred[j].id,toName:nameOf[cred[j].id],amount:round2_(x)});
+    debt[i].v-=x; cred[j].v-=x; if(debt[i].v<0.5)i++; if(cred[j].v<0.5)j++;
+  }
+  var balances=Object.keys(paid).map(function(h){ return {memberId:h,name:nameOf[h],paid:round2_(paid[h]),owe:round2_(owe[h]),balance:bal[h]}; });
+  return {balances:balances,settle:settle,byCategory:byCategory,byDay:byDay,total:round2_(total)};
+}
+function round2_(n){ return Math.round(n*100)/100; }
+
+/* ============================================================
+ *  ACTIVITY
+ * ========================================================== */
+function logAct_(tripId,me,action,detail){ appendRow_('Activity',{id:'a-'+Utilities.getUuid().slice(0,8),tripId:tripId,actorId:me.userId,actorName:me.fullName,action:action,detail:detail,at:now_()}); }
+function api_activity(p){ userByToken_(p.token); return readAll_('Activity').filter(function(a){return a.tripId===p.tripId;}).sort(function(a,b){return a.at<b.at?1:-1;}).slice(0,200).map(function(a){ return {id:a.id,tripId:a.tripId,actorId:a.actorId,actorName:a.actorName,action:a.action,detail:a.detail,at:dStr_(a.at)}; }); }
+
+/* ============================================================
+ *  MONEY + REPORT
+ * ========================================================== */
+function fmtMoney_(n,cur){ var s={INR:'₹',USD:'$',EUR:'€',GBP:'£',AED:'AED '}[cur||'INR']||''; return s+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function countHeads_(members){ return members.filter(function(m){return !m.isFamily;}).length||1; }
+function shortDate_(iso){ try{return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});}catch(e){return'';} }
+function styleKV_(t){ t.setBorderColor('#E3E5E8'); for(var r=0;r<t.getNumRows();r++) t.getCell(r,0).editAsText().setBold(true); }
+function styleTable_(t){ t.setBorderColor('#E3E5E8'); var h=t.getRow(0); for(var c=0;c<h.getNumCells();c++) h.getCell(c).editAsText().setBold(true).setForegroundColor('#22252A'); }
+
+function buildReportDoc_(tripId,me){
+  var d=getTripData_(tripId,me),t=d.trip,cur=t.currency;
+  var doc=DocumentApp.create('Trip Report - '+t.name+' - '+new Date().toLocaleDateString('en-IN')),body=doc.getBody();
+  body.setMarginTop(36).setMarginBottom(36).setMarginLeft(40).setMarginRight(40);
+  body.appendParagraph(t.name).setHeading(DocumentApp.ParagraphHeading.TITLE);
+  body.appendParagraph(APP_NAME+' — Trip Report').setForegroundColor('#4FB596').setFontSize(10);
+  body.appendParagraph('Trip code '+t.code+'   ·   '+d.members.length+' people   ·   Generated '+new Date().toLocaleString('en-IN')).setFontSize(9).setForegroundColor('#6B7078');
+  body.appendHorizontalRule();
+  body.appendParagraph('Summary').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  styleKV_(body.appendTable([['Total spent',fmtMoney_(d.total,cur)],['People',String(d.members.length)],
+    ['Budget',t.budget?fmtMoney_(t.budget,cur):'—'],['Per person (avg)',fmtMoney_(d.total/Math.max(1,countHeads_(d.members)),cur)]]));
+
+  body.appendParagraph('Spending by category').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var cr=[['Category','Amount','Share']];
+  Object.keys(d.byCategory).sort(function(a,b){return d.byCategory[b]-d.byCategory[a];}).forEach(function(c){ cr.push([c,fmtMoney_(d.byCategory[c],cur),(d.total?(d.byCategory[c]/d.total*100).toFixed(1):'0')+'%']); });
+  styleTable_(body.appendTable(cr));
+
+  body.appendParagraph('Spending by day').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var dr=[['Date','Amount']];
+  Object.keys(d.byDay).sort().forEach(function(day){ dr.push([shortDate_(day),fmtMoney_(d.byDay[day],cur)]); });
+  styleTable_(body.appendTable(dr));
+
+  body.appendParagraph('Member summary').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var mr=[['Member','Paid','Share','Balance']];
+  d.balances.forEach(function(b){ mr.push([b.name,fmtMoney_(b.paid,cur),fmtMoney_(b.owe,cur),(b.balance>=0?'gets back ':'owes ')+fmtMoney_(Math.abs(b.balance),cur)]); });
+  styleTable_(body.appendTable(mr));
+
+  body.appendParagraph('Settle up — who pays whom').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  if(d.settle.length){ var sr=[['From','To','Amount']]; d.settle.forEach(function(s){ sr.push([s.fromName,s.toName,fmtMoney_(s.amount,cur)]); }); styleTable_(body.appendTable(sr)); }
+  else body.appendParagraph('Everyone is settled up.').setFontSize(10);
+
+  // Tickets section
+  var memName={}; d.members.forEach(function(m){ memName[m.memberId]=m.name; });
+  var ticketExp=d.expenses.filter(function(e){return !e.deleted && e.ticket;});
+  if(ticketExp.length){
+    body.appendParagraph('Tickets').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    var tr=[['Type','Route / Train','Date','PNR','Passengers','Fare']];
+    ticketExp.forEach(function(e){ var tk=e.ticket||{};
+      var pax=(tk.passengers||[]).map(function(x){return x.name;}).join(', ');
+      tr.push([(tk.mode||'').toUpperCase(),tk.train||tk.route||e.description,tk.date||shortDate_(e.spentOn),tk.pnr||'',pax,fmtMoney_(e.amount,cur)]); });
+    styleTable_(body.appendTable(tr));
+  }
+
+  body.appendParagraph('All expenses').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var er=[['Date','Expense','Category','Amount']];
+  d.expenses.forEach(function(e){ er.push([shortDate_(e.spentOn),e.description+(e.deleted?' (deleted)':'')+(e.note?' — '+e.note:''),e.category,fmtMoney_(e.amount,cur)]); });
+  styleTable_(body.appendTable(er));
+  doc.saveAndClose(); return doc.getId();
+}
+function api_makeReportPdf(p){
+  var me=userByToken_(p.token),docId=buildReportDoc_(p.tripId,me),trip=getTrip_(p.tripId);
+  var pdf=DriveApp.getFileById(docId).getAs('application/pdf').setName('Trip Report - '+trip.name+'.pdf');
+  var file=shareView_(childFolder_(subFolder_(SUB_REPORTS),safeName_(trip.name)).createFile(pdf));
+  DriveApp.getFileById(docId).setTrashed(true);
+  return {fileId:file.getId(),url:file.getUrl(),dataUrl:'data:application/pdf;base64,'+Utilities.base64Encode(pdf.getBytes()),name:file.getName()};
+}
+function api_emailReport(p){
+  var me=userByToken_(p.token),docId=buildReportDoc_(p.tripId,me),trip=getTrip_(p.tripId);
+  var pdf=DriveApp.getFileById(docId).getAs('application/pdf').setName('Trip Report - '+trip.name+'.pdf');
+  var to=(p.emails||[]).join(','); if(!to) throw 'No email addresses given.';
+  MailApp.sendEmail({to:to,subject:APP_NAME+' — '+trip.name+' report',body:'Hi,\n\nAttached is the expense report for "'+trip.name+'" up to '+new Date().toLocaleString('en-IN')+'.\n\n— '+APP_NAME,attachments:[pdf]});
+  DriveApp.getFileById(docId).setTrashed(true);
+  logAct_(p.tripId,me,'report','Emailed report to '+to);
+  return {ok:true,sentTo:to};
+}
+function api_settleMessages(p){
+  var me=userByToken_(p.token),d=getTripData_(p.tripId,me),memById={}; d.members.forEach(function(m){memById[m.memberId]=m;});
+  return {tripName:d.trip.name,messages:d.settle.map(function(s){ var from=memById[s.fromId]||{};
+    return {name:s.fromName,mobile:from.mobile||'',email:from.email||'',amount:s.amount,
+      text:'Hi '+s.fromName+', for our trip "'+d.trip.name+'": you owe '+fmtMoney_(s.amount,d.trip.currency)+' to '+s.toName+'. — '+APP_NAME}; })};
+}
+
+/* ============================================================
+ *  READABLE BACKUP  (Google Doc, refreshed after every save)
+ * ========================================================== */
+function backup_(force){
+  try{
+    var props=PropertiesService.getScriptProperties();
+    var last=Number(props.getProperty('BACKUP_AT')||0);
+    if(!force && Date.now()-last < 120000) return;   // throttle: at most once every 2 min (keeps saves fast)
+    props.setProperty('BACKUP_AT',String(Date.now()));
+    var id=props.getProperty('BACKUP_DOC');
+    var doc; if(id){ try{ doc=DocumentApp.openById(id); }catch(e){ doc=null; } }
+    if(!doc){ doc=DocumentApp.create('Trip Expense Tracker — Readable Backup'); var f=DriveApp.getFileById(doc.getId()); childFolder_(subFolder_(SUB_BACKUP),'.').addFile(f); DriveApp.getRootFolder().removeFile(f); props.setProperty('BACKUP_DOC',doc.getId()); }
+    var body=doc.getBody(); body.clear();
+    body.appendParagraph('Trip Expense Tracker — Backup').setHeading(DocumentApp.ParagraphHeading.TITLE);
+    body.appendParagraph('Last updated: '+new Date().toLocaleString('en-IN')).setFontSize(9).setForegroundColor('#6B7078');
+    var users=readAll_('Users'), uName={}; users.forEach(function(u){uName[u.userId]=u.fullName;});
+    var members=readAll_('Members'), expenses=readAll_('Expenses'), payments=readAll_('Payments');
+    readAll_('Trips').filter(function(t){return t.status!=='deleted';}).forEach(function(t){
+      body.appendParagraph(t.name+'  ('+t.code+')').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      var mem=members.filter(function(m){return m.tripId===t.tripId;});
+      body.appendParagraph('People: '+mem.map(function(m){return m.displayName+(m.isFamily?' (family)':'')+(m.isKid?' (kid)':'');}).join(', ')).setFontSize(10);
+      var te=expenses.filter(function(e){return e.tripId===t.tripId;});
+      var rows=[['Date','Expense','Category','Amount','Deleted']];
+      te.forEach(function(e){ rows.push([String(e.spentOn||e.addedAt).slice(0,10),e.description,e.category,String(e.amount),e.deleted?'yes':'']); });
+      if(te.length) styleTable_(body.appendTable(rows));
+      var pm=payments.filter(function(x){return x.tripId===t.tripId;});
+      if(pm.length){ body.appendParagraph('Payments:').setFontSize(10).setBold(true);
+        pm.forEach(function(x){ body.appendParagraph('• '+String(x.recordedAt).slice(0,10)+': '+x.amount).setFontSize(9); }); }
+    });
+    doc.saveAndClose();
+  }catch(e){ /* backup is best-effort */ }
+}
+
+/* ============================================================
+ *  ADMIN + VERSION
+ * ========================================================== */
+function api_adminOverview(token){
+  var me=userByToken_(token); if(!isAdmin_(me)) throw 'Admins only.';
+  return {users:readAll_('Users').map(function(u){return {userId:u.userId,fullName:u.fullName,username:u.username,email:u.email,mobile:u.mobile,createdAt:dStr_(u.createdAt)};}),
+    trips:readAll_('Trips').map(function(t){return {name:t.name,code:t.code,createdBy:t.createdBy,createdAt:dStr_(t.createdAt),status:t.status};}),
+    activity:readAll_('Activity').sort(function(a,b){return a.at<b.at?1:-1;}).slice(0,100).map(function(a){return {actorName:a.actorName,detail:a.detail,at:dStr_(a.at)};})};
+}
+function api_adminSetPassword(p){
+  var me=userByToken_(p.token); if(!isAdmin_(me)) throw 'Admins only.';
+  var user=readAll_('Users').filter(function(x){return x.userId===p.userId;})[0]; if(!user) throw 'User not found.';
+  if(!p.password || String(p.password).length<4) throw 'Password must be at least 4 characters.';
+  updateWhere_('Users','userId',user.userId,{passHash:hash_(p.password,user.salt),tokenHash:''}); // new password; old sessions logged out
+  return {ok:true};
+}
+function api_updateLocation(p){
+  var me=userByToken_(p.token);
+  var mine=findMyMember_(p.tripId,me.userId); if(!mine) throw 'You are not in this trip.';
+  var lat=Number(p.lat), lng=Number(p.lng);
+  if(!isFinite(lat)||!isFinite(lng)) throw 'Bad location.';
+  updateWhere_('Members','memberId',mine.memberId,{lat:lat,lng:lng,locAt:now_()});
+  backup_(false);
+  return getTripData_(p.tripId,me);
+}
+function api_clearLocation(p){
+  var me=userByToken_(p.token);
+  var mine=findMyMember_(p.tripId,me.userId); if(!mine) throw 'You are not in this trip.';
+  updateWhere_('Members','memberId',mine.memberId,{lat:'',lng:'',locAt:''});
+  return getTripData_(p.tripId,me);
+}
+function api_version(){ return {version:APP_VERSION,name:APP_NAME}; }
+
+/* ---- one-time setup (run once from editor) ---- */
+function setup(){ db_(); return 'Setup complete. Deploy as Web app (Execute as: Me, Access: Anyone).'; }

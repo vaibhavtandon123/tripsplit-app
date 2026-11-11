@@ -234,7 +234,7 @@ function renderAuth(){
 function showLogin(){
   $('#authbox').innerHTML='';
   $('#authbox').appendChild(el('<div>\
-    <div class="field"><label>Username or email</label><input id="lu" autocapitalize="none"></div>\
+    <div class="field"><label>Username, email or phone</label><input id="lu" autocapitalize="none"></div>\
     <div class="field"><label>Password</label><input id="lp" type="password"></div>\
     <button class="btn" id="loginBtn">Log in</button>\
     <button class="btn out sm" id="forgotBtn" style="margin-top:10px">Forgot password?</button>\
@@ -1006,8 +1006,16 @@ function openDeleteTrip(){
  * ========================================================= */
 function renderFriends(){
   var head='<div class="top"><h1>Friends</h1></div>';
-  shell('friends','<div class="center"><div style="font-size:38px">👥</div><div class="muted" style="max-width:260px">Open a trip to see who owes whom.</div><button class="btn" id="goTrips" style="max-width:200px">Go to trips</button></div>',head);
-  $('#goTrips').onclick=renderTrips;
+  shell('friends','<div id="frList">'+skelTrips()+'</div>',head);
+  call('api_friends',{token:S.token}).then(function(list){
+    var box=$('#frList');if(!box)return;
+    if(!list.length){box.innerHTML='<div class="center"><div style="font-size:42px">👥</div><div class="muted" style="max-width:260px">No friends yet. Create or join a trip to add people.</div><button class="btn" id="goTrips" style="max-width:200px">Go to trips</button></div>';if($('#goTrips'))$('#goTrips').onclick=renderTrips;return;}
+    var h='<div class="muted" style="margin:2px 2px 12px">Everyone across your trips</div>';
+    list.forEach(function(f){var ini=(f.name||'?').charAt(0).toUpperCase();
+      h+='<div class="card" style="display:flex;align-items:center;gap:13px;padding:14px"><div class="avatar" data-ph="'+esc(f.photoId||'')+'" style="width:46px;height:46px;font-size:19px;flex:0 0 auto">'+esc(ini)+'</div><div style="flex:1;min-width:0"><b>'+esc(f.name)+'</b><div class="muted" style="font-size:12px">@'+esc(f.username||'')+'</div></div></div>';});
+    box.innerHTML=h;
+    Array.prototype.forEach.call(box.querySelectorAll('[data-ph]'),function(a){var id=a.getAttribute('data-ph');if(id){a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(id)+')';}});
+  }).catch(function(e){if($('#frList'))$('#frList').innerHTML='<div class="center">'+esc(e)+'</div>';});
 }
 function renderActivityTab(){
   var head='<div class="top"><h1>Activity</h1></div>';
@@ -1020,20 +1028,42 @@ function renderAccount(){
   var head='<div class="top"><h1>Account</h1></div>';
   var adminBtn=u.isAdmin?'<button class="btn sec" id="adminBtn" style="margin-top:10px">🛡️ Admin overview</button>':'';
   var body='<div class="card" style="display:flex;align-items:center;gap:14px"><div class="avatar" id="accAv" style="width:54px;height:54px;font-size:22px">'+esc((u.fullName||'?').charAt(0).toUpperCase())+'</div><div style="flex:1"><b style="font-size:17px">'+esc(u.fullName||'')+'</b><div class="muted">@'+esc(u.username||'')+'</div><div class="muted">'+esc(u.email||'')+'</div></div></div>'+
-    (u.isAdmin?'<div class="banner">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
+    '<button class="btn sec sm" id="editProf" style="margin-top:10px">✏️ Edit profile</button>'+
+    (u.isAdmin?'<div class="banner" style="margin-top:12px">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
     '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px" id="verLine">TripSplit<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
   shell('account',body,head);
   if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
   $('#logoutBtn').onclick=function(){if(confirm('Log out?'))logout();};
+  if($('#editProf'))$('#editProf').onclick=openEditProfile;
   if($('#adminBtn'))$('#adminBtn').onclick=openAdmin;
   call('api_version').then(function(v){if($('#verLine'))$('#verLine').innerHTML=esc(v.name+' v'+v.version)+'<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div>';});
+}
+function openEditProfile(){
+  var u=S.user||{};
+  sheetModal('Edit profile',
+    '<div style="text-align:center;margin-bottom:8px"><div class="avatar" id="epAv" style="width:76px;height:76px;font-size:30px;margin:0 auto">'+esc((u.fullName||'?').charAt(0).toUpperCase())+'</div><label style="color:var(--mint);font-size:13px;font-weight:700;display:inline-block;margin-top:10px;cursor:pointer">Change photo<input id="epPhoto" type="file" accept="image/*" style="display:none"></label></div>\
+     <div class="field"><label>Full name</label><input id="epName" value="'+esc(u.fullName||'')+'"></div>\
+     <div class="field"><label>Email</label><input id="epEmail" type="email" value="'+esc(u.email||'')+'"></div>\
+     <div class="field"><label>Mobile</label><input id="epMobile" type="tel" value="'+esc(u.mobile||'')+'"></div>\
+     <div class="field"><label>Date of birth</label><input id="epDob" type="date" value="'+esc(u.dob||'')+'"></div>\
+     <button class="btn" id="epSave">Save changes</button>',
+    function(){
+      var photoData=null;
+      if(u.photoId){var a=$('#epAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
+      $('#epPhoto').onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(){photoData=r.result;var a=$('#epAv');a.textContent='';a.style.backgroundImage='url('+photoData+')';};r.readAsDataURL(f);};
+      $('#epSave').onclick=function(){
+        var payload={token:S.token,fullName:$('#epName').value,email:$('#epEmail').value,mobile:$('#epMobile').value,dob:$('#epDob').value};
+        if(photoData)payload.photo=photoData;
+        loading(true);call('api_updateProfile',payload).then(function(me){loading(false);S.user=me;cacheSet('tet_user',me);closeModal();renderAccount();toast('Profile updated');}).catch(function(e){loading(false);toast(e);});
+      };
+    });
 }
 function openAdmin(){
   loading(true);
   call('api_adminOverview',S.token).then(function(o){loading(false);
-    var usr=o.users.map(function(u){return '<div class="exp"><div class="mid"><b>'+esc(u.fullName)+'</b><div class="meta">@'+esc(u.username)+' · '+esc(u.email||'')+'</div></div><button class="btn out sm pwBtn" data-uid="'+esc(u.userId)+'" data-un="'+esc(u.username)+'" style="width:auto;padding:8px 10px;font-size:12px">Reset password</button></div>';}).join('');
+    var usr=o.users.map(function(u){return '<div class="exp"><div class="mid"><b>'+esc(u.fullName)+(u.isAdmin?' <span class="pill">admin</span>':'')+'</b><div class="meta">@'+esc(u.username)+(u.email?' · '+esc(u.email):'')+(u.mobile?' · 📱 '+esc(u.mobile):'')+'</div><div class="meta">'+(u.tripCount||0)+' trips · joined '+(u.createdAt?sdt(u.createdAt):'—')+'</div><div class="meta" style="color:var(--mint)">Last login: '+(u.lastLogin?sdt(u.lastLogin):'never')+'</div></div><button class="btn out sm pwBtn" data-uid="'+esc(u.userId)+'" data-un="'+esc(u.username)+'" style="width:auto;padding:8px 10px;font-size:12px">Reset</button></div>';}).join('');
     var trp=o.trips.map(function(t){return '<div class="exp"><div class="mid"><b>'+esc(t.name)+'</b><div class="meta">code '+esc(t.code)+' · '+esc(t.status)+'</div></div></div>';}).join('');
     var act=o.activity.map(function(a){return '<div class="exp"><div class="mid"><b>'+esc(a.actorName)+'</b><div class="meta">'+esc(a.detail)+' · '+sdt(a.at)+'</div></div></div>';}).join('');
     sheetModal('Admin overview','<p class="muted">Passwords are encrypted and cannot be viewed. You can set a new one for any user.</p><h2 class="sec">Users ('+o.users.length+')</h2>'+usr+'<h2 class="sec">Trips ('+o.trips.length+')</h2>'+trp+'<h2 class="sec">Recent activity</h2>'+act,function(){

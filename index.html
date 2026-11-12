@@ -564,7 +564,7 @@ function buildDonut(byCat,total,cur){
   var r=52,cx=62,cy=62,circ=2*Math.PI*r,off=0,segs='';
   var gap=items.length>1?3:0;
   items.forEach(function(it,i){var full=it.v/total*circ,len=Math.max(full-gap,0.6);segs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+pal[i%pal.length]+'" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 '+cx+' '+cy+')"></circle>';off+=full;});
-  var svg='<svg viewBox="0 0 124 124" width="116" height="116" style="display:block">'+segs+'<text x="62" y="59" text-anchor="middle" font-size="18" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="62" y="77" text-anchor="middle" font-size="8.5" letter-spacing="1.3" fill="var(--sub)">TOTAL</text></svg>';
+  var svg='<svg viewBox="0 0 124 124" width="142" height="142" style="display:block">'+segs+'<text x="62" y="59" text-anchor="middle" font-size="18" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="62" y="77" text-anchor="middle" font-size="8.5" letter-spacing="1.3" fill="var(--sub)">TOTAL</text></svg>';
   var leg='<div style="flex:1;min-width:0">';
   items.forEach(function(it,i){var pct=it.v/total*100,col=pal[i%pal.length];
     leg+='<div style="margin-bottom:11px">\
@@ -580,7 +580,7 @@ function buildDonut(byCat,total,cur){
     </div>';
   });
   leg+='</div>';
-  return '<div class="card" style="padding:18px 16px;display:flex;align-items:center;gap:14px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
+  return '<div class="card" style="padding:18px 14px;display:flex;align-items:center;gap:10px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
 }
 function memName(id){var m=(S.data.members.filter(function(x){return x.memberId===id;})[0]||{});return m.name||'?';}
 function nameOfUser(userId){var d=S.data;if(!d)return '';var m=d.members.filter(function(x){return x.userId===userId;})[0];if(m)return m.name;if(S.user&&S.user.userId===userId)return S.user.fullName;return '';}

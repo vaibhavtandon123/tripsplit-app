@@ -845,6 +845,8 @@ function api_clearLocation(p){
   updateWhere_('Members','memberId',mine.memberId,{lat:'',lng:'',locAt:''});
   return getTripData_(p.tripId,me);
 }
+function api_stations(p){ userByToken_(p.token); var raw=PropertiesService.getScriptProperties().getProperty('CUSTOM_STATIONS'); var arr=[]; try{arr=JSON.parse(raw||'[]');}catch(e){} return arr; }
+function api_addStation(p){ userByToken_(p.token); var name=String(p.name||'').trim().replace(/\s+/g,' '); if(name.length<2) return {ok:false}; var props=PropertiesService.getScriptProperties(); var arr=[]; try{arr=JSON.parse(props.getProperty('CUSTOM_STATIONS')||'[]');}catch(e){} var low=name.toLowerCase(); if(!arr.some(function(s){return String(s).toLowerCase()===low;})){ arr.push(name); if(arr.length>3000)arr=arr.slice(-3000); props.setProperty('CUSTOM_STATIONS',JSON.stringify(arr)); } return {ok:true,stations:arr}; }
 function api_version(){ return {version:APP_VERSION,name:APP_NAME}; }
 
 /* ---- one-time setup (run once from editor) ---- */

@@ -456,6 +456,21 @@ function openStart(){
 
 var DESTS=['Agra','Ahmedabad','Ajmer','Alleppey','Amritsar','Andaman','Auli','Aurangabad','Ayodhya','Bengaluru','Bhopal','Bikaner','Chandigarh','Chennai','Chikmagalur','Coorg','Darjeeling','Dehradun','Delhi','Dharamshala','Diu','Gangtok','Goa','Gokarna','Gulmarg','Guwahati','Gwalior','Hampi','Haridwar','Hyderabad','Indore','Jaipur','Jaisalmer','Jammu','Jim Corbett','Jodhpur','Kanyakumari','Kasol','Kaziranga','Kedarnath','Khajuraho','Kochi','Kodaikanal','Kolkata','Konark','Kovalam','Ladakh','Leh','Lonavala','Lucknow','Madurai','Manali','Mangalore','Mathura','McLeodganj','Mount Abu','Mumbai','Munnar','Mussoorie','Mysuru','Nainital','Nashik','Ooty','Pachmarhi','Pahalgam','Panaji','Patnitop','Pondicherry','Puri','Pushkar','Raipur','Rameswaram','Ranthambore','Rishikesh','Shillong','Shimla','Spiti','Srinagar','Tirupati','Udaipur','Ujjain','Vadodara','Varanasi','Varkala','Visakhapatnam','Wayanad'].map(function(n){return {n:n,ind:true};}).concat(['Bali','Bangkok','Dubai','Singapore','Maldives','Kathmandu','Pokhara','Bhutan','Thimphu','Colombo','Phuket','Krabi','Kuala Lumpur','Hanoi','Da Nang','Baku','Almaty','Abu Dhabi','Paris','London','Rome','Istanbul','Zurich','Swiss Alps','Cairo','Seychelles','Mauritius'].map(function(n){return {n:n,ind:false};}));
 function monthLabel(val){if(!val)return '';var p=val.split('-'),mn=['January','February','March','April','May','June','July','August','September','October','November','December'];return (mn[Number(p[1])-1]||'')+' '+p[0];}
+var STATIONS=['New Delhi (NDLS)','Old Delhi (DLI)','Hazrat Nizamuddin (NZM)','Anand Vihar Terminal (ANVT)','Delhi Sarai Rohilla (DEE)','Mumbai CSMT (CSMT)','Mumbai Central (MMCT)','Dadar (DR)','Bandra Terminus (BDTS)','Lokmanya Tilak Terminus (LTT)','Borivali (BVI)','Thane (TNA)','Kalyan (KYN)','Panvel (PNVL)','Howrah (HWH)','Sealdah (SDAH)','Kolkata (KOAA)','Chennai Central (MAS)','Chennai Egmore (MS)','KSR Bengaluru (SBC)','Yesvantpur (YPR)','Secunderabad (SC)','Hyderabad Deccan (HYB)','Kacheguda (KCG)','Ahmedabad (ADI)','Pune (PUNE)','Jaipur (JP)','Lucknow (LKO)','Lucknow Charbagh (LJN)','Kanpur Central (CNB)','Patna (PNBE)','Bhopal (BPL)','Rani Kamlapati (RKMP)','Nagpur (NGP)','Surat (ST)','Vadodara (BRC)','Indore (INDB)','Visakhapatnam (VSKP)','Vijayawada (BZA)','Ernakulam (ERS)','Thiruvananthapuram (TVC)','Coimbatore (CBE)','Madurai (MDU)','Guwahati (GHY)','Bhubaneswar (BBS)','Puri (PURI)','Cuttack (CTC)','Raipur (R)','Bilaspur (BSP)','Durg (DURG)','Ranchi (RNC)','Jammu Tawi (JAT)','Katra (SVDK)','Amritsar (ASR)','Chandigarh (CDG)','Ambala Cantt (UMB)','Ludhiana (LDH)','Jalandhar City (JUC)','Varanasi (BSB)','Prayagraj (PRYJ)','Gwalior (GWL)','Jhansi (VGLJ)','Agra Cantt (AGC)','Mathura (MTJ)','Ajmer (AII)','Jodhpur (JU)','Udaipur City (UDZ)','Bikaner (BKN)','Kota (KOTA)','Sawai Madhopur (SWM)','Ujjain (UJN)','Ratlam (RTM)','Jabalpur (JBP)','Katni (KTE)','Satna (STA)','Itarsi (ET)','Dhanbad (DHN)','Asansol (ASN)','Durgapur (DGR)','New Jalpaiguri (NJP)','Dibrugarh (DBRG)','Dimapur (DMV)','Agartala (AGTL)','Kanyakumari (CAPE)','Mangaluru (MAQ)','Hubballi (UBL)','Belagavi (BGM)','Solapur (SUR)','Aurangabad (AWB)','Nashik Road (NK)','Kolhapur (KOP)','Madgaon Goa (MAO)','Vasco da Gama (VSG)','Tiruchirappalli (TPJ)','Salem (SA)','Tirupati (TPTY)','Guntur (GNT)','Warangal (WL)','Gorakhpur (GKP)','Haridwar (HW)','Dehradun (DDN)','Kathgodam (KGM)','Shimla (SML)','Moradabad (MB)','Bareilly (BE)','Aligarh (ALJN)','Rewari (RE)','Gurugram (GGN)','Faridabad (FDB)','Bhusaval (BSL)','Manmad (MMR)','Miraj (MRJ)','Ratnagiri (RN)','Valsad (BL)','Bharuch (BH)','Anand (ANND)','Abu Road (ABR)','Palanpur (PNU)','Gandhidham (GIMB)','Rajkot (RJT)','Jamnagar (JAM)','Bhavnagar (BVC)','Khandwa (KNW)','Wardha (WR)','Gondia (G)','Chandrapur (CD)','Nanded (NED)','Latur (LUR)','Bijapur (BJP)','Davangere (DVG)','Ballari (BAY)','Nellore (NLR)','Ongole (OGL)','Rajahmundry (RJY)','Kakinada (COA)','Kurnool (KRNT)','Anantapur (ATP)','Gooty (GY)','Renigunta (RU)','Katpadi (KPD)','Vellore','Erode (ED)','Tirunelveli (TEN)','Dindigul (DG)','Kollam (QLN)','Kottayam (KTYM)','Thrissur (TCR)','Kozhikode (CLT)','Kannur (CAN)','Palakkad (PGT)','Dubai (DXB)','Abu Dhabi (AUH)','Doha (DOH)','Singapore (SIN)','Bangkok (BKK)','Phuket (HKT)','Bali Denpasar (DPS)','Kuala Lumpur (KUL)','Kathmandu (KTM)','Colombo (CMB)','Male (MLE)','London (LHR)','Paris (CDG)','Frankfurt (FRA)','Istanbul (IST)','New York (JFK)','Toronto (YYZ)','Sydney (SYD)','Hong Kong (HKG)','Tokyo (NRT)'];
+function allStations(){return STATIONS.concat(S.customStations||[]);}
+function loadStations(){ if(S._stLoaded)return; S._stLoaded=true; call('api_stations',S.token).then(function(a){if(a&&a.length)S.customStations=a;}).catch(function(){}); }
+function wireStationAC(input,box){
+  function show(q){q=String(q||'').trim().toLowerCase();if(!q){box.style.display='none';box.innerHTML='';return;}
+    var list=allStations(),pre=list.filter(function(s){return s.toLowerCase().indexOf(q)===0;}),mid=list.filter(function(s){return s.toLowerCase().indexOf(q)>0;});
+    var res=pre.concat(mid).slice(0,8);
+    if(!res.length){box.style.display='none';box.innerHTML='';return;}
+    box.innerHTML=res.map(function(s){return '<div class="destrow" data-n="'+esc(s)+'" style="padding:11px 14px;border-bottom:1px solid var(--line)">🚉 '+esc(s)+'</div>';}).join('');
+    box.style.display='block';
+    Array.prototype.forEach.call(box.querySelectorAll('.destrow'),function(r){r.onmousedown=function(ev){ev.preventDefault();input.value=r.getAttribute('data-n');box.style.display='none';};});
+  }
+  input.oninput=function(e){show(e.target.value);};
+  input.onblur=function(){setTimeout(function(){box.style.display='none';},180);};
+}
 
 function openNewTrip(){
   var catDefault=['Food','Travel','Stay','Shopping','Tickets','Fuel','Other'];
@@ -939,10 +954,14 @@ function shareMyLocation(){
 }
 function openTickets(){
   var d=S.data;if(d.trip.locked)return toast('Trip is locked');
-  sheetModal('Add travel tickets','<p class="muted">Upload train, flight or bus ticket PDFs. Then just put the total fare and tick who travelled — it splits equally. Kids are left out automatically.</p>\
+  loadStations();
+  sheetModal('Add travel tickets','<p class="muted">Upload the ticket PDF to read it automatically, OR enter the details yourself.</p>\
     <div class="field"><label>Ticket PDFs (one or many)</label><input id="tkFiles" type="file" accept="application/pdf" multiple></div>\
-    <button class="btn" id="tkRead">Next</button><div id="tkOut" style="margin-top:12px"></div>',
+    <button class="btn" id="tkRead">Read PDF</button>\
+    <div style="text-align:center;color:var(--sub);font-size:12px;margin:12px 0">— or —</div>\
+    <button class="btn out" id="tkManual">✍️ Enter manually</button><div id="tkOut" style="margin-top:12px"></div>',
     function(){
+      $('#tkManual').onclick=function(){closeModal();showTicketConfirm([{}]);};
       $('#tkRead').onclick=function(){
         var files=$('#tkFiles').files;if(!files.length)return toast('Choose at least one PDF');
         var arr=[],done=0;
@@ -975,13 +994,18 @@ function showTicketConfirm(parsed){
     html+='<div class="card" data-ti="'+ti+'">\
       <div class="row2"><div class="field" style="flex:1"><label>Type</label><select data-f="mode"><option value="train"'+(tk.mode==='train'?' selected':'')+'>Train</option><option value="flight"'+(tk.mode==='flight'?' selected':'')+'>Flight</option><option value="bus"'+(tk.mode==='bus'?' selected':'')+'>Bus</option></select></div>\
       <div class="field" style="flex:1"><label>Total fare ('+(CUR[cur]||cur)+')</label><input data-f="fare" type="number" inputmode="decimal" placeholder="0" value="'+(tk.fare||'')+'"></div></div>\
+      <div class="row2"><div class="field" style="flex:1;position:relative;z-index:20"><label>From station</label><input data-f="from" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.from||'')+'"><div class="stSug" id="sugFrom'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
+      <div class="field" style="flex:1;position:relative;z-index:20"><label>To station</label><input data-f="to" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.to||'')+'"><div class="stSug" id="sugTo'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div></div>\
+      <div class="row2"><div class="field" style="flex:1"><label>Train number</label><input data-f="trainNo" inputmode="numeric" placeholder="e.g. 12834" value="'+esc(tk.trainNo||'')+'"></div>\
+      <div class="field" style="flex:1"><label>Date</label><input data-f="date" placeholder="e.g. 27-Dec" value="'+esc(tk.date||'')+'"></div></div>\
       <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOpts+'</select></div>\
       <label class="muted" style="display:block;margin-bottom:4px">Who travelled on this ticket</label><div class="paxOn">'+rows+'</div>\
       <div class="perInfo muted" style="margin:8px 2px"></div>\
-      <details style="margin-top:6px"><summary class="muted" style="font-size:13px">Add PNR / route / date (optional)</summary>\
+      <details style="margin-top:6px"><summary class="muted" style="font-size:13px">Add PNR / coach / seat / class (optional)</summary>\
         <div class="row2" style="margin-top:8px"><div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div>\
-        <div class="field" style="flex:1"><label>Date</label><input data-f="date" value="'+esc(tk.date||'')+'"></div></div>\
-        <div class="field"><label>Train / Route</label><input data-f="train" value="'+esc(tk.train||tk.route||'')+'"></div></details>\
+        <div class="field" style="flex:1"><label>Class</label><input data-f="cls" placeholder="SL / 3A / CC" value="'+esc(tk.cls||'')+'"></div></div>\
+        <div class="row2"><div class="field" style="flex:1"><label>Coach</label><input data-f="coach" placeholder="S4" value="'+esc((tk.passengers&&tk.passengers[0]&&tk.passengers[0].coach)||'')+'"></div>\
+        <div class="field" style="flex:1"><label>Seat</label><input data-f="seat" placeholder="8 SU" value="'+esc((tk.passengers&&tk.passengers[0]&&tk.passengers[0].seat)||'')+'"></div></div></details>\
       <input type="hidden" data-f="fileId" value="'+esc(tk.fileId||'')+'"></div>';
   });
   html+='<button class="btn" id="tkSave">Save tickets</button>';
@@ -1000,6 +1024,9 @@ function showTicketConfirm(parsed){
       var cardEl=document.querySelector('[data-ti="'+ti+'"]');
       cardEl.querySelector('[data-f="fare"]').oninput=function(){refresh(ti);};
       Array.prototype.forEach.call(cardEl.querySelectorAll('[data-on]'),function(cb){cb.onchange=function(){refresh(ti);};});
+      var fIn=cardEl.querySelector('[data-f="from"]'),tIn=cardEl.querySelector('[data-f="to"]');
+      if(fIn&&$('#sugFrom'+ti))wireStationAC(fIn,$('#sugFrom'+ti));
+      if(tIn&&$('#sugTo'+ti))wireStationAC(tIn,$('#sugTo'+ti));
       refresh(ti);
     });
     $('#tkSave').onclick=function(){
@@ -1015,8 +1042,13 @@ function showTicketConfirm(parsed){
         if(fare<=0||!adults.length){bad=true;return;}
         var per=fare/adults.length,lines=adults.map(function(mid){return {memberId:mid,amount:per};});
         var tk0=parsed[ti]||{};
+        var from=g('from'),to=g('to'),coach=g('coach'),seat=g('seat');
         var pax=(tk0.passengers&&tk0.passengers.length)?tk0.passengers:passengers;
-        tickets.push({mode:g('mode'),pnr:g('pnr'),train:g('train'),trainNo:tk0.trainNo||'',route:(tk0.route||g('train')),from:tk0.from||'',to:tk0.to||'',cls:tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:pax});
+        if(coach||seat)pax=pax.map(function(x){return {name:x.name,coach:x.coach||coach,seat:x.seat||seat};});
+        var route=(from&&to)?(from+' → '+to):(tk0.route||'');
+        var train=g('trainNo')?(g('trainNo')+(route?' · '+route:'')):(tk0.train||route);
+        tickets.push({mode:g('mode'),pnr:g('pnr'),train:train,trainNo:g('trainNo')||tk0.trainNo||'',route:route,from:from||tk0.from||'',to:to||tk0.to||'',cls:g('cls')||tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:pax});
+        [from,to].forEach(function(s){ s=String(s||'').trim(); if(s.length>=2 && !allStations().some(function(x){return x.toLowerCase()===s.toLowerCase();})){ call('api_addStation',{token:S.token,name:s}).then(function(r){if(r&&r.stations)S.customStations=r.stations;}).catch(function(){}); } });
       });
       if(bad)return toast('Har ticket me total fare aur kam se kam ek adult chuno');
       loading(true);

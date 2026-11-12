@@ -561,26 +561,24 @@ function buildDonut(byCat,total,cur){
   var pal=['#4FB596','#F2672E','#8656CD','#3A8DDE','#E8B33A','#E0603A','#2FAE7F','#9AA0A6'];
   var items=Object.keys(byCat).map(function(k){return {k:k,v:byCat[k]};}).sort(function(a,b){return b.v-a.v;});
   if(!items.length||total<=0)return '<div class="card" style="text-align:center;color:var(--sub);padding:24px 16px">No spending yet</div>';
-  var r=52,cx=62,cy=62,circ=2*Math.PI*r,off=0,segs='';
-  var gap=items.length>1?3:0;
-  items.forEach(function(it,i){var full=it.v/total*circ,len=Math.max(full-gap,0.6);segs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+pal[i%pal.length]+'" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 '+cx+' '+cy+')"></circle>';off+=full;});
-  var svg='<svg viewBox="0 0 124 124" width="142" height="142" style="display:block">'+segs+'<text x="62" y="59" text-anchor="middle" font-size="18" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="62" y="77" text-anchor="middle" font-size="8.5" letter-spacing="1.3" fill="var(--sub)">TOTAL</text></svg>';
+  var cx=86,cy=86,r=80,ir=47,a=-Math.PI/2;
+  function pt(X,Y,rr,ang){return (X+rr*Math.cos(ang))+' '+(Y+rr*Math.sin(ang));}
+  var paths='',labels='';
+  items.forEach(function(it,i){var frac=it.v/total,a1=a+frac*2*Math.PI,g=0.03,s=a+g/2,e=a1-g/2,large=(e-s)>Math.PI?1:0,col=pal[i%pal.length];
+    paths+='<path d="M '+pt(cx,cy,r,s)+' A '+r+' '+r+' 0 '+large+' 1 '+pt(cx,cy,r,e)+' L '+pt(cx,cy,ir,e)+' A '+ir+' '+ir+' 0 '+large+' 0 '+pt(cx,cy,ir,s)+' Z" fill="'+col+'"/>';
+    var mid=(s+e)/2,lr=(r+ir)/2; if(frac>0.07)labels+='<text x="'+(cx+lr*Math.cos(mid))+'" y="'+(cy+lr*Math.sin(mid)+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+Math.round(frac*100)+'%</text>';
+    a=a1;});
+  var svg='<svg viewBox="0 0 172 172" width="158" height="158" style="display:block">'+paths+'<circle cx="86" cy="86" r="45" fill="var(--card)"/><text x="86" y="82" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="86" y="99" text-anchor="middle" font-size="9" letter-spacing="1.2" fill="var(--sub)">TOTAL</text>'+labels+'</svg>';
   var leg='<div style="flex:1;min-width:0">';
-  items.forEach(function(it,i){var pct=it.v/total*100,col=pal[i%pal.length];
-    leg+='<div style="margin-bottom:11px">\
-      <div style="display:flex;align-items:center;gap:8px">\
-        <span class="catico" style="width:24px;height:24px;border-radius:8px;font-size:12px;background:'+col+'22">'+catIcon(it.k)+'</span>\
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12px">'+esc(it.k)+'</span>\
-        <b style="flex:0 0 auto;font-size:12.5px">'+money0(it.v,cur)+'</b>\
-      </div>\
-      <div style="display:flex;align-items:center;gap:7px;margin-top:5px;margin-left:32px">\
-        <div style="flex:1;height:6px;border-radius:999px;background:rgba(140,140,140,.16);overflow:hidden"><i style="display:block;height:100%;width:'+Math.max(pct,2).toFixed(1)+'%;background:'+col+';border-radius:999px"></i></div>\
-        <span style="flex:0 0 auto;width:30px;text-align:right;color:var(--sub);font-size:11.5px;font-weight:600">'+pct.toFixed(0)+'%</span>\
-      </div>\
+  items.forEach(function(it,i){var col=pal[i%pal.length];
+    leg+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">\
+        <span class="catico" style="background:'+col+'22">'+catIcon(it.k)+'</span>\
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13.5px">'+esc(it.k)+'</span>\
+        <b style="flex:0 0 auto;font-size:13.5px">'+money0(it.v,cur)+'</b>\
     </div>';
   });
   leg+='</div>';
-  return '<div class="card" style="padding:18px 14px;display:flex;align-items:center;gap:10px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
+  return '<div class="card" style="padding:16px 14px;display:flex;align-items:center;gap:10px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
 }
 function memName(id){var m=(S.data.members.filter(function(x){return x.memberId===id;})[0]||{});return m.name||'?';}
 function nameOfUser(userId){var d=S.data;if(!d)return '';var m=d.members.filter(function(x){return x.userId===userId;})[0];if(m)return m.name;if(S.user&&S.user.userId===userId)return S.user.fullName;return '';}

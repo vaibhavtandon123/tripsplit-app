@@ -77,8 +77,8 @@ input[type=date]{-webkit-appearance:none;appearance:none;min-height:48px;line-he
 .legend{display:flex;flex-direction:column;gap:7px;margin-top:4px;}
 .legend .li{display:flex;align-items:center;gap:8px;font-size:13.5px;}
 .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto;}
-.bar{height:6px;border-radius:4px;background:var(--soft);overflow:hidden;margin-top:8px;}
-.bar > i{display:block;height:100%;background:var(--mint);}
+.bar{height:7px;border-radius:999px;background:var(--soft);overflow:hidden;margin-top:8px;}
+.bar > i{display:block;height:100%;background:var(--mint);border-radius:999px;}
 .exp{display:flex;align-items:flex-start;gap:12px;padding:13px 2px;border-bottom:1px solid var(--line);}
 .exp .cat{width:42px;height:42px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;}
 .exp .mid{flex:1;min-width:0;}
@@ -161,6 +161,17 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 .chip{flex:1;background:var(--soft);border-radius:14px;padding:10px 12px;}
 .chip .cl{font-size:10.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .chip .cv{font-size:16px;font-weight:800;margin-top:3px;}
+.balc2{margin:-46px 0 0;background:linear-gradient(145deg,var(--mint) 0%,var(--mint-d) 70%,#2E8A70 100%);border-radius:26px;padding:20px;color:#fff;box-shadow:0 18px 40px rgba(47,156,127,.38);position:relative;z-index:5;overflow:hidden;}
+.balc2::after{content:"";position:absolute;top:-60px;right:-40px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none;}
+.balc2-top{font-size:13px;font-weight:600;opacity:.94;position:relative;}
+.balc2-v{font-size:35px;font-weight:900;letter-spacing:-1.2px;margin:2px 0 15px;position:relative;}
+.balc2-cta{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:rgba(0,0,0,.24);color:#fff;border:none;border-radius:15px;padding:14px;font-size:14.5px;font-weight:700;font-family:inherit;position:relative;}
+.balc2-ok{background:rgba(255,255,255,.18);border-radius:15px;padding:13px;text-align:center;font-weight:700;font-size:14.5px;position:relative;}
+.balc2-chips{display:flex;gap:9px;margin-top:14px;position:relative;}
+.bch{flex:1;background:rgba(255,255,255,.17);border-radius:15px;padding:11px 12px;}
+.bch .bl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.85;}
+.bch .bv{font-size:15px;font-weight:800;margin-top:4px;white-space:nowrap;}
+.catico{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto;}
 .bp{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin:14px 0;box-shadow:0 8px 24px rgba(17,20,24,.06);}
 .bph{display:flex;align-items:center;gap:10px;padding:14px 16px 12px;}
 .bph .md{width:40px;height:40px;border-radius:12px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;}
@@ -506,11 +517,16 @@ function renderDashboard(updating){
     <span class="covmotif" style="font-size:90px;top:-6px;right:6px">'+hcf.motif+'</span>\
     <div class="htop"><button class="hback" id="bk">‹ Trips</button><button class="hmenu" id="tripMenu">⋯</button></div>\
     <h1>'+esc(t.name)+'</h1><div class="hsub">'+d.members.length+' '+(d.members.length==1?'person':'people')+'</div></div>';
-  var balCard='<div class="balc"><div class="bl">'+(myBal>=0?'You are owed':'You owe')+'</div>\
-    <div class="bv" style="color:'+(myBal>=0?'#19B47E':'var(--orange)')+'">'+(myBal>=0?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
-    <div class="chips"><div class="chip"><div class="cl">Total</div><div class="cv">'+money0(d.total,cur)+'</div></div>\
-    <div class="chip"><div class="cl">People</div><div class="cv">'+d.members.length+'</div></div>\
-    <div class="chip"><div class="cl">To settle</div><div class="cv" style="color:var(--orange)">'+money0(settleTotal,cur)+'</div></div></div></div>';
+  var owed=myBal>=0;
+  var balCard='<div class="balc2">\
+    <div class="balc2-top">'+(owed?'You are owed':'You owe')+'</div>\
+    <div class="balc2-v">'+(owed?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
+    '+(d.settle.length?'<button class="balc2-cta" id="settleBtn">Settle up '+d.settle.length+' '+(d.settle.length==1?'payment':'payments')+' ›</button>':'<div class="balc2-ok">✓ Everyone is settled up</div>')+'\
+    <div class="balc2-chips">\
+      <div class="bch"><div class="bl">Total</div><div class="bv">'+money0(d.total,cur)+'</div></div>\
+      <div class="bch"><div class="bl">People</div><div class="bv">'+d.members.length+'</div></div>\
+      <div class="bch"><div class="bl">To settle</div><div class="bv">'+money0(settleTotal,cur)+'</div></div>\
+    </div></div>';
   var lock=t.locked?'<div class="lockbanner" style="margin-top:14px">🔒 This trip is locked — view only. Open ⋯ to unlock.</div>':'';
   var budget='';
   if(t.budget){var pct=Math.round(d.total/t.budget*100),col=pct>=100?'var(--orange)':(pct>=80?'#E8A13A':'var(--mint)');
@@ -519,8 +535,7 @@ function renderDashboard(updating){
   var catB=catBudgetHtml(d);
   var donut=buildDonut(d.byCategory,d.total,cur);
   var settleHtml='';
-  if(d.settle.length){settleHtml='<h2 class="sec">Settle up</h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div><button class="btn out sm" id="settleBtn">Open settle up</button>';}
-  else settleHtml='<div class="card" style="text-align:center;color:var(--green)">✓ Everyone is settled up</div>';
+  if(d.settle.length){settleHtml='<h2 class="sec">Settle up</h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div><button class="btn out sm" id="settleBtn2">Open settle up</button>';}
   var body=hero+balCard+lock+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
     '<h2 class="sec" style="display:flex;justify-content:space-between">Recent expenses <a id="allExp" style="color:var(--mint);font-size:13px;font-weight:600">See all</a></h2><div id="expMini"></div>\
     <div class="row2" style="margin-top:14px"><button class="btn sec sm" id="shareBtn">📤 Share</button><button class="btn sec sm" id="ticketBtn">🎟️ Tickets</button><button class="btn sec sm" id="addPpl">👥 People</button></div>\
@@ -528,6 +543,7 @@ function renderDashboard(updating){
   shell('trips',body,head);
   $('#bk').onclick=renderTrips;$('#tripMenu').onclick=openTripMenu;
   if($('#settleBtn'))$('#settleBtn').onclick=openSettle;
+  if($('#settleBtn2'))$('#settleBtn2').onclick=openSettle;
   $('#allExp').onclick=openAllExpenses;$('#shareBtn').onclick=openShare;$('#addPpl').onclick=openPeople;$('#ticketBtn').onclick=openTripTickets;$('#locBtn').onclick=openLocations;
   if(t.coverId&&$('#heroBox'))$('#heroBox').style.background='linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42)),url(/img?id='+encodeURIComponent(t.coverId)+') center/cover';
   var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted;}).slice(0,5);
@@ -551,14 +567,14 @@ function buildDonut(byCat,total,cur){
   var svg='<svg viewBox="0 0 132 132" width="148" height="148" style="display:block;margin:2px auto 0">'+segs+'<text x="66" y="63" text-anchor="middle" font-size="20" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="66" y="83" text-anchor="middle" font-size="9.5" letter-spacing="1.5" fill="var(--sub)">TOTAL</text></svg>';
   var leg='<div style="margin-top:16px">';
   items.forEach(function(it,i){var pct=it.v/total*100,col=pal[i%pal.length];
-    leg+='<div style="margin-bottom:13px">\
-      <div style="display:flex;align-items:center;gap:9px">\
-        <span style="width:11px;height:11px;border-radius:4px;background:'+col+';flex:0 0 auto"></span>\
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+catIcon(it.k)+' '+esc(it.k)+'</span>\
+    leg+='<div style="margin-bottom:14px">\
+      <div style="display:flex;align-items:center;gap:11px">\
+        <span class="catico" style="background:'+col+'22">'+catIcon(it.k)+'</span>\
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+esc(it.k)+'</span>\
         <b style="flex:0 0 auto;font-size:15px">'+money0(it.v,cur)+'</b>\
         <span style="flex:0 0 auto;width:42px;text-align:right;color:var(--sub);font-size:13px;font-weight:600">'+pct.toFixed(0)+'%</span>\
       </div>\
-      <div style="height:6px;border-radius:5px;background:rgba(140,140,140,.16);margin-top:7px;overflow:hidden"><i style="display:block;height:100%;width:'+Math.max(pct,2).toFixed(1)+'%;background:'+col+';border-radius:5px"></i></div>\
+      <div style="height:7px;border-radius:999px;background:rgba(140,140,140,.16);margin-top:8px;margin-left:45px;overflow:hidden"><i style="display:block;height:100%;width:'+Math.max(pct,2).toFixed(1)+'%;background:'+col+';border-radius:999px"></i></div>\
     </div>';
   });
   leg+='</div>';

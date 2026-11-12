@@ -41,6 +41,7 @@ a{color:inherit;}
 .top{display:flex;align-items:center;gap:10px;padding:14px 16px 6px;}
 .top h1{font-size:21px;font-weight:800;margin:0;flex:1;letter-spacing:-.3px;}
 .iconbtn{width:38px;height:38px;border-radius:50%;border:none;background:var(--soft);color:var(--ink);font-size:17px;display:flex;align-items:center;justify-content:center;}
+.newbtn{background:linear-gradient(135deg,var(--mint),var(--mint-d));color:#fff;border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;font-family:inherit;box-shadow:0 4px 12px rgba(79,181,150,.38);}
 .back{background:none;border:none;color:var(--mint);font-size:15px;font-weight:600;padding:0;}
 .btn{display:block;width:100%;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;font-family:inherit;background:var(--mint);color:#fff;box-shadow:var(--shadow);letter-spacing:.1px;}
 .btn:active{transform:scale(.99);}
@@ -210,6 +211,8 @@ var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){re
 var CUR={INR:'₹',USD:'$',EUR:'€',GBP:'£',AED:'AED '};
 function money(n,cur){return (CUR[cur]||'')+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function money0(n,cur){return (CUR[cur]||'')+Math.round(Number(n||0)).toLocaleString('en-IN');}
+function smartCaps(s){return String(s).replace(/\S+/g,function(w){if(w.length>=2&&w===w.toUpperCase())return w;return w.charAt(0).toUpperCase()+w.slice(1);});}
+document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('capsField')&&t.value){var v=smartCaps(t.value);if(v!==t.value)t.value=v;}},true);
 var CATICON={Food:'🍽️',Travel:'🚕',Stay:'🏨',Shopping:'🛍️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 function catIcon(c){return CATICON[c]||'📦';}
 var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
@@ -417,10 +420,10 @@ function skelDashboard(){
 }
 function renderTrips(){
   S.trip=null;S.data=null;S.tab='trips';
-  var head='<div class="top"><h1>Your trips</h1><button class="iconbtn" id="newTop">＋</button></div>';
+  var head='<div class="top"><h1>Your trips</h1><button class="newbtn" id="newTop">＋ New</button></div>';
   var scr=shell('trips','<div id="triplist"></div>',head);
   $('#newTop').onclick=openStart;
-  var cached=cacheGet('tet_trips');if(cached)paintTrips(cached);else $('#triplist').innerHTML=skelTrips();
+  var cached=cacheGet('tet_trips');if(cached&&cached.length)paintTrips(cached);else $('#triplist').innerHTML=skelTrips();
   call('api_myTrips',S.token).then(function(list){cacheSet('tet_trips',list);if(S.tab==='trips')paintTrips(list);}).catch(function(e){if(!cached)$('#triplist').innerHTML='<div class="center">'+esc(e)+'</div>';});
 }
 function paintTrips(list){
@@ -435,9 +438,12 @@ function paintTrips(list){
       <div class="tfoot"><div class="tppl">👥 '+t.members+' '+(t.members==1?'person':'people')+'</div>\
       <div class="ttot"><span>Total spent</span><b>'+money0(t.total,t.currency)+'</b></div></div></div>';
   });
+  h+='<div class="card" style="display:flex;gap:10px;padding:12px;margin-top:4px"><button class="btn sm" id="ntCreate" style="flex:1">✈️ New trip</button><button class="btn out sm" id="ntJoin" style="flex:1">🔗 Join</button></div>';
   box.innerHTML=h;
   Array.prototype.forEach.call(box.querySelectorAll('.tcard2'),function(c){c.onclick=function(){openTrip(c.getAttribute('data-id'));};});
   Array.prototype.forEach.call(box.querySelectorAll('[data-cover]'),function(c){c.style.backgroundImage='url(/img?id='+encodeURIComponent(c.getAttribute('data-cover'))+')';});
+  if($('#ntCreate'))$('#ntCreate').onclick=openNewTrip;
+  if($('#ntJoin'))$('#ntJoin').onclick=openJoinTrip;
 }
 
 /* ---- Create / Join chooser (clean premium) ---- */
@@ -455,7 +461,7 @@ function openNewTrip(){
   var catDefault=['Food','Travel','Stay','Shopping','Tickets','Fuel','Other'];
   var now=new Date(),thisMonth=now.getFullYear()+'-'+('0'+(now.getMonth()+1)).slice(-2);
   sheetModal('Create a new trip',
-    '<div class="field" style="position:relative;z-index:30"><label>Destination</label><input id="tdest" placeholder="Search a destination" autocomplete="off"><div id="destSug" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;overflow:hidden;max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
+    '<div class="field" style="position:relative;z-index:30"><label>Destination</label><input id="tdest" class="capsField" placeholder="Search a destination" autocomplete="off"><div id="destSug" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;overflow:hidden;max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
      <div class="field"><label>Month</label><input id="tmonth" type="month" value="'+thisMonth+'"></div>\
      <div class="field"><label>Trip name</label><input id="tname" placeholder="Trip name (auto-filled)"></div>\
      <div class="row2"><div class="field" style="flex:1"><label>Currency</label><select id="tc"><option value="INR">₹ INR</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option><option value="GBP">£ GBP</option><option value="AED">AED</option></select></div>\
@@ -572,7 +578,7 @@ function buildDonut(byCat,total,cur){
   var leg='<div style="flex:1;min-width:0">';
   items.forEach(function(it,i){var col=pal[i%pal.length];
     leg+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">\
-        <span class="catico" style="background:'+col+'22">'+catIcon(it.k)+'</span>\
+        <span class="catico" style="background:'+col+';box-shadow:0 2px 6px '+col+'55">'+catIcon(it.k)+'</span>\
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13.5px">'+esc(it.k)+'</span>\
         <b style="flex:0 0 auto;font-size:13.5px">'+money0(it.v,cur)+'</b>\
     </div>';
@@ -614,7 +620,7 @@ function openAddExpense(existing){
   var singlePayer=Object.keys(payers)[0]||myMember;
   var catOpts=t.cats.map(function(c){return '<option'+(ex&&ex.category===c?' selected':'')+'>'+esc(c)+'</option>';}).join('')+'<option value="__new">+ New category…</option>';
   var payOpts=members.map(function(m){return '<option value="'+m.memberId+'"'+(singlePayer===m.memberId?' selected':'')+'>'+esc(m.name)+'</option>';}).join('');
-  var html='<div class="field"><label>Description</label><input id="eDesc" placeholder="e.g. Dinner, Taxi, Hotel" value="'+esc(ex?ex.description:'')+'"></div>\
+  var html='<div class="field"><label>Description</label><input id="eDesc" class="capsField" placeholder="e.g. Dinner, Taxi, Hotel" value="'+esc(ex?ex.description:'')+'"></div>\
     <div class="row2"><div class="field" style="flex:1.3"><label>Amount ('+(CUR[cur]||cur)+')</label><input id="eAmt" type="number" inputmode="decimal" placeholder="0.00" value="'+(ex?ex.amount:'')+'"></div>\
     <div class="field" style="flex:1"><label>Category</label><select id="eCat">'+catOpts+'</select></div></div>\
     <div class="field"><label>Date</label><input id="eDate" type="date" value="'+(ex&&ex.spentOn?ex.spentOn:todayStr())+'"></div>\

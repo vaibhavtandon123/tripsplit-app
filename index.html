@@ -791,6 +791,22 @@ function openSettle(){
   var html='';
   if(!d.settle.length)html='<div class="center" style="height:auto;padding:30px 0">✓ Everyone is settled up</div>';
   else d.settle.forEach(function(s,i){html+='<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(s.fromName)+'</b><span class="ar">→</span><b>'+esc(s.toName)+'</b><span style="margin-left:auto;font-weight:700;font-size:16px">'+money(s.amount,cur)+'</span></div><div class="row2" style="margin-top:10px"><button class="btn sm orange" data-upi="'+i+'">Pay by UPI</button><button class="btn sm sec" data-paid="'+i+'">Mark paid</button></div></div>';});
+  var stats=d.memberStats||[];
+  if(stats.length){
+    var groups={};
+    stats.forEach(function(s){var key=s.headId||s.memberId;if(!groups[key])groups[key]={head:key,total:0,members:[]};groups[key].total+=s.cost;groups[key].members.push(s);});
+    var arr=Object.keys(groups).map(function(k){return groups[k];}).sort(function(a,b){return b.total-a.total;});
+    html+='<h2 class="sec" style="margin-top:20px">Spending breakdown</h2>';
+    arr.forEach(function(g){
+      if(g.members.length>1){
+        html+='<div class="card" style="padding:12px 16px;margin-bottom:8px"><div style="display:flex;align-items:center"><b>👪 '+esc(memById[g.head]?memById[g.head].name:'')+'\'s family</b><span style="margin-left:auto;font-weight:700">'+money(g.total,cur)+'</span></div>';
+        g.members.sort(function(a,b){return b.cost-a.cost;}).forEach(function(s){html+='<div class="meta" style="display:flex;margin-top:6px"><span>'+esc(s.name)+(s.memberId===g.head?' (head)':'')+'</span><span style="margin-left:auto">'+money(s.cost,cur)+'</span></div>';});
+        html+='</div>';
+      } else {
+        html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center"><b>'+esc(g.members[0].name)+'</b><span style="margin-left:auto;font-weight:700">'+money(g.members[0].cost,cur)+'</span></div>';
+      }
+    });
+  }
   html+='<button class="btn out sm" id="shareFromSettle" style="margin-top:14px">📤 Send everyone the summary</button>';
   sheetModal('Settle up — who pays whom',html,function(){
     d.settle.forEach(function(s,i){

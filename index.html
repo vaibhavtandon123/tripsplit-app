@@ -542,14 +542,27 @@ function catBudgetHtml(d){
   return h+'</div>';
 }
 function buildDonut(byCat,total,cur){
-  var pal=['#4FB596','#F2672E','#8656CD','#3A8DDE','#E8B33A','#9AA0A6','#E0603A','#2Fae7f'];
+  var pal=['#4FB596','#F2672E','#8656CD','#3A8DDE','#E8B33A','#E0603A','#2FAE7F','#9AA0A6'];
   var items=Object.keys(byCat).map(function(k){return {k:k,v:byCat[k]};}).sort(function(a,b){return b.v-a.v;});
-  if(!items.length||total<=0)return '<div class="card" style="text-align:center;color:var(--sub)">No spending yet</div>';
-  var r=52,cx=64,cy=64,circ=2*Math.PI*r,off=0,segs='';
-  items.forEach(function(it,i){var len=it.v/total*circ;segs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+pal[i%pal.length]+'" stroke-width="20" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 '+cx+' '+cy+')"></circle>';off+=len;});
-  var svg='<svg viewBox="0 0 128 128" width="128" height="128">'+segs+'<text x="64" y="60" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">'+money0(total,cur)+'</text><text x="64" y="76" text-anchor="middle" font-size="9" fill="var(--sub)">total</text></svg>';
-  var leg='<div class="legend">';items.forEach(function(it,i){leg+='<div class="li"><span class="dot" style="background:'+pal[i%pal.length]+'"></span><span style="flex:1">'+catIcon(it.k)+' '+esc(it.k)+'</span><b>'+money0(it.v,cur)+'</b><span class="muted" style="width:42px;text-align:right">'+(it.v/total*100).toFixed(0)+'%</span></div>';});leg+='</div>';
-  return '<div class="card"><div style="display:flex;align-items:center;gap:14px"><div style="flex:0 0 auto">'+svg+'</div><div style="flex:1">'+leg+'</div></div></div>';
+  if(!items.length||total<=0)return '<div class="card" style="text-align:center;color:var(--sub);padding:24px 16px">No spending yet</div>';
+  var r=54,cx=66,cy=66,circ=2*Math.PI*r,off=0,segs='';
+  var gap=items.length>1?3:0;
+  items.forEach(function(it,i){var full=it.v/total*circ,len=Math.max(full-gap,0.6);segs+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+pal[i%pal.length]+'" stroke-width="13" stroke-linecap="round" stroke-dasharray="'+len+' '+(circ-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 '+cx+' '+cy+')"></circle>';off+=full;});
+  var svg='<svg viewBox="0 0 132 132" width="148" height="148" style="display:block;margin:2px auto 0">'+segs+'<text x="66" y="63" text-anchor="middle" font-size="20" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="66" y="83" text-anchor="middle" font-size="9.5" letter-spacing="1.5" fill="var(--sub)">TOTAL</text></svg>';
+  var leg='<div style="margin-top:16px">';
+  items.forEach(function(it,i){var pct=it.v/total*100,col=pal[i%pal.length];
+    leg+='<div style="margin-bottom:13px">\
+      <div style="display:flex;align-items:center;gap:9px">\
+        <span style="width:11px;height:11px;border-radius:4px;background:'+col+';flex:0 0 auto"></span>\
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">'+catIcon(it.k)+' '+esc(it.k)+'</span>\
+        <b style="flex:0 0 auto;font-size:15px">'+money0(it.v,cur)+'</b>\
+        <span style="flex:0 0 auto;width:42px;text-align:right;color:var(--sub);font-size:13px;font-weight:600">'+pct.toFixed(0)+'%</span>\
+      </div>\
+      <div style="height:6px;border-radius:5px;background:rgba(140,140,140,.16);margin-top:7px;overflow:hidden"><i style="display:block;height:100%;width:'+Math.max(pct,2).toFixed(1)+'%;background:'+col+';border-radius:5px"></i></div>\
+    </div>';
+  });
+  leg+='</div>';
+  return '<div class="card" style="padding:18px 16px">'+svg+leg+'</div>';
 }
 function memName(id){var m=(S.data.members.filter(function(x){return x.memberId===id;})[0]||{});return m.name||'?';}
 function nameOfUser(userId){var d=S.data;if(!d)return '';var m=d.members.filter(function(x){return x.userId===userId;})[0];if(m)return m.name;if(S.user&&S.user.userId===userId)return S.user.fullName;return '';}

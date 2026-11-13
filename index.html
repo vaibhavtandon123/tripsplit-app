@@ -95,6 +95,8 @@ input[type=date]{-webkit-appearance:none;appearance:none;min-height:48px;line-he
 .exp .mid{flex:1;min-width:0;}
 .exp .mid b{font-size:15px;}
 .exp .amt{text-align:right;font-weight:700;font-size:15px;white-space:nowrap;}
+.exp .amtcol{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:0 0 auto;}
+.exp .pbamt{font-size:11px;font-weight:700;color:var(--mint);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;text-align:right;}
 .exp .meta{font-size:11px;color:var(--sub);margin-top:3px;line-height:1.5;}
 .exp.del b{text-decoration:line-through;color:var(--sub);}
 .exp.del .amt{text-decoration:line-through;color:var(--sub);}
@@ -645,7 +647,7 @@ function expRow(e){
   var tick=e.ticket?' <span class="pill">'+(e.ticket.mode||'ticket')+'</span>':'';
   if(e.stay&&e.stay.nights)tick+=' <span class="pill">🏨 '+e.stay.nights+(e.stay.nights===1?' night':' nights')+'</span>';
   var note=e.note?'<div class="meta">📝 '+esc(e.note)+'</div>':'';
-  var row=el('<div class="exp'+(e.deleted?' del':'')+'"><div class="cat">'+catIcon(e.category)+'</div><div class="mid"><b>'+esc(e.description||'(no title)')+'</b>'+tick+'<div class="meta"><span class="pill">'+esc(e.category)+'</span> '+esc(splitTxt)+' · paid by '+esc(payerLabel(e))+'</div>'+note+'<div class="meta">'+meta+'</div></div><div class="amt">'+money(e.amount,cur)+'</div></div>');
+  var row=el('<div class="exp'+(e.deleted?' del':'')+'"><div class="cat">'+catIcon(e.category)+'</div><div class="mid"><b>'+esc(e.description||'(no title)')+'</b>'+tick+'<div class="meta"><span class="pill">'+esc(e.category)+'</span> '+esc(splitTxt)+'</div>'+note+'<div class="meta">'+meta+'</div></div><div class="amtcol"><div class="amt">'+money(e.amount,cur)+'</div><div class="pbamt">Paid by '+esc(payerLabel(e))+'</div></div></div>');
   if(!e._pending)row.onclick=function(){openExpenseDetail(e);};
   return row;
 }

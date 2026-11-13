@@ -49,6 +49,9 @@ a{color:inherit;}
 .switch .track:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
 .switch input:checked + .track{background:var(--mint);}
 .switch input:checked + .track:before{transform:translateX(18px);}
+.tkpill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;}
+.tkpill.up{background:rgba(79,181,150,.15);color:var(--mint-d,#2E8A70);}
+.tkpill.done{background:var(--soft);color:var(--sub);}
 .back{background:none;border:none;color:var(--mint);font-size:15px;font-weight:600;padding:0;}
 .btn{display:block;width:100%;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;font-family:inherit;background:var(--mint);color:#fff;box-shadow:var(--shadow);letter-spacing:.1px;}
 .btn:active{transform:scale(.99);}
@@ -915,14 +918,14 @@ function openTripTickets(){
   var head='<div class="top"><button class="back" id="bkt">‹ '+esc(d.trip.name)+'</button><h1 style="font-size:17px">Trip tickets</h1></div>';
   var body='';
   if(!d.trip.locked)body+='<button class="btn sm" id="addTk" style="margin-bottom:12px">➕ Add tickets</button>';
-  if(!tks.length)body+='<div class="center" style="height:auto;padding:30px 0"><div style="font-size:38px">🎟️</div><div class="muted">No tickets yet</div></div>';
-  else tks.forEach(function(e){
+  function tkCard(e){
     var tk=e.ticket||{};
     var modeIc={train:'🚆',flight:'✈️',bus:'🚌'}[tk.mode]||'🎟️';
     var title=tk.train||tk.route||e.description;
     var st=[];if(tk.cls)st.push(tk.cls);if(tk.date)st.push(tk.date);
     function codeOf(s){var m=String(s||'').match(/\(([^)]+)\)\s*$/);return m?m[1]:String(s||'').slice(0,4).toUpperCase();}
     function nameOf(s){return String(s||'').replace(/\s*\(([^)]+)\)\s*$/,'').trim();}
+    var tag=e._done?'<span class="tkpill done">Journey done</span>':'<span class="tkpill up">Upcoming</span>';
     var routeHtml='';
     if(tk.from&&tk.to){routeHtml='<div class="bproute"><div class="end"><div class="code">'+esc(codeOf(tk.from))+'</div><div class="pl">'+esc(nameOf(tk.from))+'</div></div><div class="mid"><div class="tr">'+modeIc+'</div><div class="ln"></div></div><div class="end"><div class="code">'+esc(codeOf(tk.to))+'</div><div class="pl">'+esc(nameOf(tk.to))+'</div></div></div><div class="bpperf"></div>';}
     var meta=[];if(tk.pnr)meta.push('<div><div class="l">PNR</div><div class="v">'+esc(tk.pnr)+'</div></div>');if(tk.cls)meta.push('<div><div class="l">Class</div><div class="v">'+esc(tk.cls)+'</div></div>');if(tk.trainNo&&tk.mode==='train')meta.push('<div><div class="l">Train</div><div class="v">'+esc(tk.trainNo)+'</div></div>');
@@ -932,12 +935,22 @@ function openTripTickets(){
     }).join('');
     var pdf=e.receiptId?'<a class="pdf" href="https://drive.google.com/file/d/'+e.receiptId+'/view" target="_blank">Open PDF ↗</a>':'<span></span>';
     var nAdult=(tk.passengers||[]).length||1;var per=money0(Math.round(e.amount/nAdult),cur);
-    body+='<div class="bp"><div class="bph"><div class="md">'+modeIc+'</div><div class="ti"><b>'+esc(title)+'</b>'+(st.length?'<div class="s">'+esc(st.join(' · '))+'</div>':'')+'</div><div class="fare">'+money0(e.amount,cur)+'</div></div>'+
+    return '<div class="bp"'+(e._done?' style="opacity:.82"':'')+'><div class="bph"><div class="md">'+modeIc+'</div><div class="ti"><b>'+esc(title)+'</b>'+(st.length?'<div class="s">'+esc(st.join(' · '))+'</div>':'')+'</div><div class="fare">'+money0(e.amount,cur)+'</div></div>'+
+      '<div style="margin:2px 0 8px">'+tag+'</div>'+
       routeHtml+
       (meta.length?'<div class="bpmeta">'+meta.join('')+'</div>':'')+
       (pax?'<div class="bppax">'+pax+'</div>':'')+
       '<div class="bpf"><span class="pb">Paid by '+esc(payerLabel(e))+' · '+per+' each</span><span style="display:flex;gap:14px;align-items:center">'+pdf+(d.trip.locked?'':'<button class="bpedit" data-ek="'+e.expenseId+'" style="background:none;border:none;color:var(--mint);font-weight:700;font-size:13px;padding:0">✏️ Edit</button>')+'</span></div></div>';
-  });
+  }
+  if(!tks.length)body+='<div class="center" style="height:auto;padding:30px 0"><div style="font-size:38px">🎟️</div><div class="muted">No tickets yet</div></div>';
+  else{
+    var today=new Date();today.setHours(0,0,0,0);var todayMs=today.getTime();
+    tks.forEach(function(e){var t=Date.parse((e.ticket||{}).date);e._jms=isNaN(t)?null:t;e._done=(e._jms!=null&&e._jms<todayMs);});
+    var up=tks.filter(function(e){return !e._done;}).sort(function(a,b){return (a._jms||9e15)-(b._jms||9e15);});
+    var dn=tks.filter(function(e){return e._done;}).sort(function(a,b){return (b._jms||0)-(a._jms||0);});
+    if(up.length){body+='<h2 class="sec" style="margin:4px 2px 10px">Upcoming</h2>';up.forEach(function(e){body+=tkCard(e);});}
+    if(dn.length){body+='<h2 class="sec" style="margin:18px 2px 10px;color:var(--sub)">Journey done</h2>';dn.forEach(function(e){body+=tkCard(e);});}
+  }
   shell('trips',body,head);
   $('#bkt').onclick=renderDashboard;
   if($('#addTk'))$('#addTk').onclick=openTickets;
@@ -1025,9 +1038,10 @@ function doParse(arr){
 function showTicketConfirm(parsed,editId){
   var d=S.data,members=d.members,cur=d.trip.currency;
   function payOptsFor(sel){return members.map(function(m){return '<option value="'+m.memberId+'"'+(m.memberId===sel?' selected':'')+'>'+esc(m.name)+'</option>';}).join('');}
-  var html='<p class="muted">Put the total fare and tick who travelled. It splits equally; kids are left out.</p>';
+  var CLS=[['','Class (optional)'],['SL','Sleeper (SL)'],['3A','AC 3 Tier (3A)'],['2A','AC 2 Tier (2A)'],['1A','AC First (1A)'],['CC','Chair Car (CC)'],['2S','Second Sitting (2S)'],['3E','AC 3 Economy (3E)'],['FC','First Class (FC)']];
+  function isoDate(s){s=String(s||'');return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';}
+  var html='<p class="muted">Put the total fare and tick who travelled — it splits equally among them. Kids pay too unless you mark them Free.</p>';
   parsed.forEach(function(tk,ti){
-    // auto-match parsed passenger names to members
     var matched={};
     (tk.passengers||[]).forEach(function(p){
       var pn=(p.name||'').toLowerCase().trim(); if(!pn)return;
@@ -1036,24 +1050,26 @@ function showTicketConfirm(parsed,editId){
     var anyMatch=Object.keys(matched).length>0;
     var trav=tk._travelled;
     var rows=members.map(function(m){
-      var checked = trav ? (trav.indexOf(m.memberId)>=0) : (anyMatch ? !!matched[m.memberId] : !m.isKid);
-      return '<div class="chk"><input type="checkbox" data-on="'+m.memberId+'"'+(checked?' checked':'')+'><span class="nm">'+esc(m.name)+(m.isKid?' <span class="pill">kid · free</span>':'')+'</span></div>';
+      var checked = trav ? (trav.indexOf(m.memberId)>=0) : (anyMatch ? !!matched[m.memberId] : true);
+      var px=(tk.passengers||[]).filter(function(p){return (p.name||'').toLowerCase().trim()===(m.name||'').toLowerCase().trim();})[0]||{};
+      return '<div class="paxrow">\
+        <div style="display:flex;align-items:center;gap:10px"><input type="checkbox" data-on="'+m.memberId+'"'+(checked?' checked':'')+' style="flex:0 0 auto;width:20px;height:20px"><span style="flex:1;min-width:0;font-weight:600;font-size:14px">'+esc(m.name)+'</span>'+(m.isKid?'<label class="muted" style="font-size:12px;display:flex;align-items:center;gap:5px;flex:0 0 auto"><input type="checkbox" data-free="'+m.memberId+'"> Free</label>':'')+'</div>\
+        <div data-cs="'+m.memberId+'" style="display:'+(checked?'flex':'none')+';gap:8px;margin:7px 0 2px 30px"><input data-coach="'+m.memberId+'" placeholder="Coach" value="'+esc(px.coach||'')+'" style="flex:1"><input data-seat="'+m.memberId+'" placeholder="Seat" value="'+esc(px.seat||'')+'" style="flex:1"></div></div>';
     }).join('');
+    var clsOpts=CLS.map(function(c){return '<option value="'+c[0]+'"'+((tk.cls||'')===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('');
+    if(tk.cls && !CLS.some(function(c){return c[0]===tk.cls;}))clsOpts='<option value="'+esc(tk.cls)+'" selected>'+esc(tk.cls)+'</option>'+clsOpts;
     html+='<div class="card" data-ti="'+ti+'">\
       <div class="row2"><div class="field" style="flex:1"><label>Type</label><select data-f="mode"><option value="train"'+(tk.mode==='train'?' selected':'')+'>Train</option><option value="flight"'+(tk.mode==='flight'?' selected':'')+'>Flight</option><option value="bus"'+(tk.mode==='bus'?' selected':'')+'>Bus</option></select></div>\
       <div class="field" style="flex:1"><label>Total fare ('+(CUR[cur]||cur)+')</label><input data-f="fare" type="number" inputmode="decimal" placeholder="0" value="'+(tk.fare||'')+'"></div></div>\
       <div class="row2"><div class="field" style="flex:1;position:relative;z-index:20"><label>From station</label><input data-f="from" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.from||'')+'"><div class="stSug" id="sugFrom'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
       <div class="field" style="flex:1;position:relative;z-index:20"><label>To station</label><input data-f="to" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.to||'')+'"><div class="stSug" id="sugTo'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div></div>\
       <div class="row2"><div class="field" style="flex:1"><label>Train number</label><input data-f="trainNo" inputmode="numeric" placeholder="e.g. 12834" value="'+esc(tk.trainNo||'')+'"></div>\
-      <div class="field" style="flex:1"><label>Date</label><input data-f="date" placeholder="e.g. 27-Dec" value="'+esc(tk.date||'')+'"></div></div>\
+      <div class="field" style="flex:1"><label>Journey date</label><input data-f="date" type="date" value="'+isoDate(tk.date)+'"></div></div>\
+      <div class="row2"><div class="field" style="flex:1"><label>Class</label><select data-f="cls">'+clsOpts+'</select></div>\
+      <div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div></div>\
       <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOptsFor(tk.payerId||'')+'</select></div>\
-      <label class="muted" style="display:block;margin-bottom:4px">Who travelled on this ticket</label><div class="paxOn">'+rows+'</div>\
+      <label class="muted" style="display:block;margin-bottom:4px">Who travelled (tick) — add each person\'s coach &amp; seat</label><div class="paxOn">'+rows+'</div>\
       <div class="perInfo muted" style="margin:8px 2px"></div>\
-      <details style="margin-top:6px"><summary class="muted" style="font-size:13px">Add PNR / coach / seat / class (optional)</summary>\
-        <div class="row2" style="margin-top:8px"><div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div>\
-        <div class="field" style="flex:1"><label>Class</label><input data-f="cls" placeholder="SL / 3A / CC" value="'+esc(tk.cls||'')+'"></div></div>\
-        <div class="row2"><div class="field" style="flex:1"><label>Coach</label><input data-f="coach" placeholder="S4" value="'+esc((tk.passengers&&tk.passengers[0]&&tk.passengers[0].coach)||'')+'"></div>\
-        <div class="field" style="flex:1"><label>Seat</label><input data-f="seat" placeholder="8 SU" value="'+esc((tk.passengers&&tk.passengers[0]&&tk.passengers[0].seat)||'')+'"></div></div></details>\
       <input type="hidden" data-f="fileId" value="'+esc(tk.fileId||'')+'"></div>';
   });
   html+='<button class="btn" id="tkSave">'+(editId?'Save changes':'Save tickets')+'</button>';
@@ -1061,17 +1077,19 @@ function showTicketConfirm(parsed,editId){
     function refresh(ti){
       var cardEl=document.querySelector('[data-ti="'+ti+'"]');
       var fare=Number(cardEl.querySelector('[data-f="fare"]').value)||0;
-      var adults=0,kids=0;
+      var pay=0,free=0;
       Array.prototype.forEach.call(cardEl.querySelectorAll('[data-on]'),function(cb){
-        if(cb.checked){var m=members.filter(function(x){return x.memberId===cb.getAttribute('data-on');})[0]||{};if(m.isKid)kids++;else adults++;}
+        if(cb.checked){var mid=cb.getAttribute('data-on');var m=members.filter(function(x){return x.memberId===mid;})[0]||{};
+          var fr=cardEl.querySelector('[data-free="'+mid+'"]'); if(m.isKid&&fr&&fr.checked)free++; else pay++;}
       });
-      var per=adults?fare/adults:0;
-      cardEl.querySelector('.perInfo').textContent=adults?('Each adult pays '+money(per,cur)+'  ·  '+adults+' adult'+(adults>1?'s':'')+(kids?'  ·  '+kids+' kid free':'')):'Tick at least one adult';
+      var per=pay?fare/pay:0;
+      cardEl.querySelector('.perInfo').textContent=pay?('Each pays '+money(per,cur)+'  ·  '+pay+' '+(pay>1?'people':'person')+(free?'  ·  '+free+' free':'')):'Tick at least one paying person';
     }
     parsed.forEach(function(_,ti){
       var cardEl=document.querySelector('[data-ti="'+ti+'"]');
       cardEl.querySelector('[data-f="fare"]').oninput=function(){refresh(ti);};
-      Array.prototype.forEach.call(cardEl.querySelectorAll('[data-on]'),function(cb){cb.onchange=function(){refresh(ti);};});
+      Array.prototype.forEach.call(cardEl.querySelectorAll('[data-on]'),function(cb){cb.onchange=function(){var mid=cb.getAttribute('data-on');var cs=cardEl.querySelector('[data-cs="'+mid+'"]');if(cs)cs.style.display=cb.checked?'flex':'none';refresh(ti);};});
+      Array.prototype.forEach.call(cardEl.querySelectorAll('[data-free]'),function(fb){fb.onchange=function(){refresh(ti);};});
       var fIn=cardEl.querySelector('[data-f="from"]'),tIn=cardEl.querySelector('[data-f="to"]');
       if(fIn&&$('#sugFrom'+ti))wireStationAC(fIn,$('#sugFrom'+ti));
       if(tIn&&$('#sugTo'+ti))wireStationAC(tIn,$('#sugTo'+ti));
@@ -1083,22 +1101,23 @@ function showTicketConfirm(parsed,editId){
         var cardEl=document.querySelector('[data-ti="'+ti+'"]');
         var g=function(f){var x=cardEl.querySelector('[data-f="'+f+'"]');return x?x.value:'';};
         var fare=Number(g('fare'))||0;
-        var adults=[],passengers=[];
+        var payMids=[],passengers=[];
         Array.prototype.forEach.call(cardEl.querySelectorAll('[data-on]'),function(cb){
-          if(cb.checked){var m=members.filter(function(x){return x.memberId===cb.getAttribute('data-on');})[0]||{};passengers.push({name:m.name,seat:''});if(!m.isKid)adults.push(m.memberId);}
+          if(cb.checked){var mid=cb.getAttribute('data-on');var m=members.filter(function(x){return x.memberId===mid;})[0]||{};
+            var coachEl=cardEl.querySelector('[data-coach="'+mid+'"]'),seatEl=cardEl.querySelector('[data-seat="'+mid+'"]');
+            passengers.push({name:m.name,coach:coachEl?coachEl.value.trim():'',seat:seatEl?seatEl.value.trim():''});
+            var fr=cardEl.querySelector('[data-free="'+mid+'"]'); if(!(m.isKid&&fr&&fr.checked))payMids.push(mid);}
         });
-        if(fare<=0||!adults.length){bad=true;return;}
-        var per=fare/adults.length,lines=adults.map(function(mid){return {memberId:mid,amount:per};});
+        if(fare<=0||!payMids.length){bad=true;return;}
+        var per=fare/payMids.length,lines=payMids.map(function(mid){return {memberId:mid,amount:per};});
         var tk0=parsed[ti]||{};
-        var from=g('from'),to=g('to'),coach=g('coach'),seat=g('seat');
-        var pax=(tk0.passengers&&tk0.passengers.length)?tk0.passengers:passengers;
-        if(coach||seat)pax=pax.map(function(x){return {name:x.name,coach:x.coach||coach,seat:x.seat||seat};});
+        var from=g('from'),to=g('to');
         var route=(from&&to)?(from+' → '+to):(tk0.route||'');
         var train=g('trainNo')?(g('trainNo')+(route?' · '+route:'')):(tk0.train||route);
-        tickets.push({mode:g('mode'),pnr:g('pnr'),train:train,trainNo:g('trainNo')||tk0.trainNo||'',route:route,from:from||tk0.from||'',to:to||tk0.to||'',cls:g('cls')||tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:pax});
+        tickets.push({mode:g('mode'),pnr:g('pnr'),train:train,trainNo:g('trainNo')||tk0.trainNo||'',route:route,from:from||tk0.from||'',to:to||tk0.to||'',cls:g('cls')||tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:passengers});
         [from,to].forEach(function(s){ s=String(s||'').trim(); if(s.length>=2 && !allStations().some(function(x){return x.toLowerCase()===s.toLowerCase();})){ call('api_addStation',{token:S.token,name:s}).then(function(r){if(r&&r.stations)S.customStations=r.stations;}).catch(function(){}); } });
       });
-      if(bad)return toast('Har ticket me total fare aur kam se kam ek adult chuno');
+      if(bad)return toast('Har ticket me total fare aur kam se kam ek paying person chuno');
       loading(true);
       if(editId){
         call('api_editTicket',{token:S.token,tripId:S.trip.tripId,expenseId:editId,ticket:tickets[0]}).then(function(d){loading(false);closeModal();setData(d);openTripTickets();toast('Ticket updated');}).catch(function(e){loading(false);toast(e);});

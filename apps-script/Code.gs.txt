@@ -609,7 +609,7 @@ function getTripData_(tripId,me){
       isCreator:trip.createdBy===me.userId,isAdmin:isAdmin_(me),webUrl:getWebAppUrl()},
     me:{userId:me.userId,memberId:(findMyMember_(tripId,me.userId)||{}).memberId||''},
     members:mem,expenses:expenses,payments:payments,
-    balances:calc.balances,settle:calc.settle,memberStats:calc.memberStats,byCategory:calc.byCategory,byDay:calc.byDay,total:calc.total
+    balances:calc.balances,settle:calc.settle,settleDirect:calc.settleDirect,memberStats:calc.memberStats,byCategory:calc.byCategory,byDay:calc.byDay,total:calc.total
   };
 }
 
@@ -633,7 +633,7 @@ function shareMap_(e,memById){
 }
 
 function computeBalances_(members,expenses,payments){
-  var memById={},headOf={},nameOf={},paid={},owe={},iOwe={},iPaid={};
+  var memById={},headOf={},nameOf={},paid={},owe={},iOwe={},iPaid={},pair={};
   members.forEach(function(m){ memById[m.memberId]=m; headOf[m.memberId]=m.headId?m.headId:m.memberId; nameOf[m.memberId]=m.name; iOwe[m.memberId]=0; iPaid[m.memberId]=0; if(!m.headId){paid[m.memberId]=0;owe[m.memberId]=0;} });
   var byCategory={},byDay={},total=0;
   expenses.filter(function(e){return !e.deleted;}).forEach(function(e){
@@ -643,6 +643,11 @@ function computeBalances_(members,expenses,payments){
     Object.keys(e.payers||{}).forEach(function(pid){ var h=headOf[pid]||pid; if(paid[h]!=null) paid[h]+=Number(e.payers[pid])||0; if(iPaid[pid]!=null) iPaid[pid]+=Number(e.payers[pid])||0; });
     var sh=shareMap_(e,memById);
     Object.keys(sh).forEach(function(mid){ var h=headOf[mid]||mid; if(owe[h]!=null) owe[h]+=sh[mid]; if(iOwe[mid]!=null) iOwe[mid]+=sh[mid]; });
+    // pairwise (direct / non-simplified) debts at head level
+    var payByHead={},pTot=0;
+    Object.keys(e.payers||{}).forEach(function(pid){ var a=Number(e.payers[pid])||0; var h=headOf[pid]||pid; payByHead[h]=(payByHead[h]||0)+a; pTot+=a; });
+    if(pTot>0){ var shByHead={}; Object.keys(sh).forEach(function(mid){ var h=headOf[mid]||mid; shByHead[h]=(shByHead[h]||0)+sh[mid]; });
+      Object.keys(shByHead).forEach(function(h){ var s=shByHead[h]; Object.keys(payByHead).forEach(function(k){ if(k!==h){ pair[h]=pair[h]||{}; pair[h][k]=(pair[h][k]||0)+s*(payByHead[k]/pTot); } }); }); }
   });
   var bal={}; Object.keys(paid).forEach(function(h){ bal[h]=round2_(paid[h]-owe[h]); });
   payments.forEach(function(p){ var f=headOf[p.fromId]||p.fromId,t=headOf[p.toId]||p.toId; if(bal[f]!=null)bal[f]=round2_(bal[f]+p.amount); if(bal[t]!=null)bal[t]=round2_(bal[t]-p.amount); });
@@ -654,9 +659,18 @@ function computeBalances_(members,expenses,payments){
     settle.push({fromId:debt[i].id,fromName:nameOf[debt[i].id],toId:cred[j].id,toName:nameOf[cred[j].id],amount:round2_(x)});
     debt[i].v-=x; cred[j].v-=x; if(debt[i].v<0.5)i++; if(cred[j].v<0.5)j++;
   }
+  // apply recorded payments to the pairwise matrix, then net each pair → direct settle
+  payments.forEach(function(p){ var f=headOf[p.fromId]||p.fromId,t=headOf[p.toId]||p.toId; pair[f]=pair[f]||{}; pair[f][t]=(pair[f][t]||0)-p.amount; });
+  var hs=Object.keys(paid),settleDirect=[];
+  for(var a2=0;a2<hs.length;a2++){ for(var b2=a2+1;b2<hs.length;b2++){ var A=hs[a2],B=hs[b2];
+    var ab=(pair[A]&&pair[A][B])||0, ba=(pair[B]&&pair[B][A])||0, net=round2_(ab-ba);
+    if(net>0.5) settleDirect.push({fromId:A,fromName:nameOf[A],toId:B,toName:nameOf[B],amount:net});
+    else if(net<-0.5) settleDirect.push({fromId:B,fromName:nameOf[B],toId:A,toName:nameOf[A],amount:round2_(-net)});
+  } }
+  settleDirect.sort(function(x,y){return y.amount-x.amount;});
   var balances=Object.keys(paid).map(function(h){ return {memberId:h,name:nameOf[h],paid:round2_(paid[h]),owe:round2_(owe[h]),balance:bal[h]}; });
   var memberStats=members.map(function(m){ return {memberId:m.memberId,name:m.name,headId:m.headId||'',isFamily:!!m.isFamily,cost:round2_(iOwe[m.memberId]||0),paid:round2_(iPaid[m.memberId]||0)}; });
-  return {balances:balances,settle:settle,memberStats:memberStats,byCategory:byCategory,byDay:byDay,total:round2_(total)};
+  return {balances:balances,settle:settle,settleDirect:settleDirect,memberStats:memberStats,byCategory:byCategory,byDay:byDay,total:round2_(total)};
 }
 function round2_(n){ return Math.round(n*100)/100; }
 

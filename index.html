@@ -612,13 +612,13 @@ function buildDonut(byCat,total,cur){
     paths+='<path d="M '+pt(cx,cy,r,s)+' A '+r+' '+r+' 0 '+large+' 1 '+pt(cx,cy,r,e)+' L '+pt(cx,cy,ir,e)+' A '+ir+' '+ir+' 0 '+large+' 0 '+pt(cx,cy,ir,s)+' Z" fill="'+col+'"/>';
     var mid=(s+e)/2,lr=(r+ir)/2; if(frac>0.07)labels+='<text x="'+(cx+lr*Math.cos(mid))+'" y="'+(cy+lr*Math.sin(mid)+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+Math.round(frac*100)+'%</text>';
     a=a1;});
-  var svg='<svg viewBox="0 0 172 172" width="158" height="158" style="display:block">'+paths+'<circle cx="86" cy="86" r="45" fill="var(--card)"/><text x="86" y="82" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="86" y="99" text-anchor="middle" font-size="9" letter-spacing="1.2" fill="var(--sub)">TOTAL</text>'+labels+'</svg>';
+  var svg='<svg viewBox="0 0 172 172" style="display:block;width:clamp(96px,32vw,150px);height:auto">'+paths+'<circle cx="86" cy="86" r="45" fill="var(--card)"/><text x="86" y="82" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="86" y="99" text-anchor="middle" font-size="9" letter-spacing="1.2" fill="var(--sub)">TOTAL</text>'+labels+'</svg>';
   var leg='<div style="flex:1;min-width:0">';
   items.forEach(function(it,i){var col=pal[i%pal.length];
-    leg+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">\
-        <span class="catico" style="background:'+col+';box-shadow:0 2px 6px '+col+'55">'+catIcon(it.k)+'</span>\
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13.5px">'+esc(it.k)+'</span>\
-        <b style="flex:0 0 auto;font-size:13.5px">'+money0(it.v,cur)+'</b>\
+    leg+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:11px">\
+        <span class="catico" style="width:26px;height:26px;border-radius:8px;font-size:13px;flex:0 0 auto;background:'+col+';box-shadow:0 2px 6px '+col+'55">'+catIcon(it.k)+'</span>\
+        <span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13px">'+esc(it.k)+'</span>\
+        <b style="flex:0 0 auto;font-size:13px;white-space:nowrap">'+money0(it.v,cur)+'</b>\
     </div>';
   });
   leg+='</div>';

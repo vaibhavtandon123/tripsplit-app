@@ -898,11 +898,20 @@ function openTripTickets(){
       routeHtml+
       (meta.length?'<div class="bpmeta">'+meta.join('')+'</div>':'')+
       (pax?'<div class="bppax">'+pax+'</div>':'')+
-      '<div class="bpf"><span class="pb">Paid by '+esc(payerLabel(e))+' · '+per+' each</span>'+pdf+'</div></div>';
+      '<div class="bpf"><span class="pb">Paid by '+esc(payerLabel(e))+' · '+per+' each</span><span style="display:flex;gap:14px;align-items:center">'+pdf+(d.trip.locked?'':'<button class="bpedit" data-ek="'+e.expenseId+'" style="background:none;border:none;color:var(--mint);font-weight:700;font-size:13px;padding:0">✏️ Edit</button>')+'</span></div></div>';
   });
   shell('trips',body,head);
   $('#bkt').onclick=renderDashboard;
   if($('#addTk'))$('#addTk').onclick=openTickets;
+  Array.prototype.forEach.call(document.querySelectorAll('.bpedit'),function(b){b.onclick=function(){openEditTicket(b.getAttribute('data-ek'));};});
+}
+function openEditTicket(expenseId){
+  var d=S.data; if(d.trip.locked)return toast('Trip is locked');
+  var e=d.expenses.filter(function(x){return x.expenseId===expenseId;})[0]; if(!e)return;
+  loadStations();
+  var tk=e.ticket||{};
+  var pre={mode:tk.mode,pnr:tk.pnr,train:tk.train,trainNo:tk.trainNo,route:tk.route,from:tk.from,to:tk.to,cls:tk.cls,date:tk.date||e.spentOn,fare:e.amount,payerId:(e.paidBy||Object.keys(e.payers||{})[0]||''),passengers:tk.passengers,_travelled:Object.keys(e.split||{})};
+  showTicketConfirm([pre],expenseId);
 }
 function timeAgo(iso){
   if(!iso)return '';var t=new Date(iso).getTime();if(isNaN(t))return '';
@@ -975,9 +984,9 @@ function doParse(arr){
     loading(false);showTicketConfirm(parsed);
   }).catch(function(e){loading(false);toast(e);});
 }
-function showTicketConfirm(parsed){
+function showTicketConfirm(parsed,editId){
   var d=S.data,members=d.members,cur=d.trip.currency;
-  var payOpts=members.map(function(m){return '<option value="'+m.memberId+'">'+esc(m.name)+'</option>';}).join('');
+  function payOptsFor(sel){return members.map(function(m){return '<option value="'+m.memberId+'"'+(m.memberId===sel?' selected':'')+'>'+esc(m.name)+'</option>';}).join('');}
   var html='<p class="muted">Put the total fare and tick who travelled. It splits equally; kids are left out.</p>';
   parsed.forEach(function(tk,ti){
     // auto-match parsed passenger names to members
@@ -987,8 +996,9 @@ function showTicketConfirm(parsed){
       members.forEach(function(m){ var mn=(m.name||'').toLowerCase().trim(); if(mn && (mn.split(' ')[0]===pn.split(' ')[0] || mn.indexOf(pn)===0 || pn.indexOf(mn)===0)) matched[m.memberId]=true; });
     });
     var anyMatch=Object.keys(matched).length>0;
+    var trav=tk._travelled;
     var rows=members.map(function(m){
-      var checked = anyMatch ? !!matched[m.memberId] : !m.isKid;
+      var checked = trav ? (trav.indexOf(m.memberId)>=0) : (anyMatch ? !!matched[m.memberId] : !m.isKid);
       return '<div class="chk"><input type="checkbox" data-on="'+m.memberId+'"'+(checked?' checked':'')+'><span class="nm">'+esc(m.name)+(m.isKid?' <span class="pill">kid · free</span>':'')+'</span></div>';
     }).join('');
     html+='<div class="card" data-ti="'+ti+'">\
@@ -998,7 +1008,7 @@ function showTicketConfirm(parsed){
       <div class="field" style="flex:1;position:relative;z-index:20"><label>To station</label><input data-f="to" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.to||'')+'"><div class="stSug" id="sugTo'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div></div>\
       <div class="row2"><div class="field" style="flex:1"><label>Train number</label><input data-f="trainNo" inputmode="numeric" placeholder="e.g. 12834" value="'+esc(tk.trainNo||'')+'"></div>\
       <div class="field" style="flex:1"><label>Date</label><input data-f="date" placeholder="e.g. 27-Dec" value="'+esc(tk.date||'')+'"></div></div>\
-      <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOpts+'</select></div>\
+      <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOptsFor(tk.payerId||'')+'</select></div>\
       <label class="muted" style="display:block;margin-bottom:4px">Who travelled on this ticket</label><div class="paxOn">'+rows+'</div>\
       <div class="perInfo muted" style="margin:8px 2px"></div>\
       <details style="margin-top:6px"><summary class="muted" style="font-size:13px">Add PNR / coach / seat / class (optional)</summary>\
@@ -1008,8 +1018,8 @@ function showTicketConfirm(parsed){
         <div class="field" style="flex:1"><label>Seat</label><input data-f="seat" placeholder="8 SU" value="'+esc((tk.passengers&&tk.passengers[0]&&tk.passengers[0].seat)||'')+'"></div></div></details>\
       <input type="hidden" data-f="fileId" value="'+esc(tk.fileId||'')+'"></div>';
   });
-  html+='<button class="btn" id="tkSave">Save tickets</button>';
-  sheetModal('Confirm tickets',html,function(){
+  html+='<button class="btn" id="tkSave">'+(editId?'Save changes':'Save tickets')+'</button>';
+  sheetModal(editId?'Edit ticket':'Confirm tickets',html,function(){
     function refresh(ti){
       var cardEl=document.querySelector('[data-ti="'+ti+'"]');
       var fare=Number(cardEl.querySelector('[data-f="fare"]').value)||0;
@@ -1052,7 +1062,11 @@ function showTicketConfirm(parsed){
       });
       if(bad)return toast('Har ticket me total fare aur kam se kam ek adult chuno');
       loading(true);
-      call('api_addTicketExpenses',{token:S.token,tripId:S.trip.tripId,tickets:tickets}).then(function(d){loading(false);closeModal();setData(d);renderDashboard();toast('Tickets added');}).catch(function(e){loading(false);toast(e);});
+      if(editId){
+        call('api_editTicket',{token:S.token,tripId:S.trip.tripId,expenseId:editId,ticket:tickets[0]}).then(function(d){loading(false);closeModal();setData(d);openTripTickets();toast('Ticket updated');}).catch(function(e){loading(false);toast(e);});
+      } else {
+        call('api_addTicketExpenses',{token:S.token,tripId:S.trip.tripId,tickets:tickets}).then(function(d){loading(false);closeModal();setData(d);renderDashboard();toast('Tickets added');}).catch(function(e){loading(false);toast(e);});
+      }
     };
   });
 }

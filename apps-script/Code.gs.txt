@@ -543,6 +543,24 @@ function api_addTicketExpenses(p){
   });
   backup_(); return getTripData_(trip.tripId,me);
 }
+function api_editTicket(p){
+  var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  var ex=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId && x.tripId===trip.tripId && !x.deleted;})[0];
+  if(!ex) throw 'Ticket not found.';
+  var tk=p.ticket||{};
+  var split={},total=0;
+  (tk.lines||[]).forEach(function(l){var amt=Number(l.amount)||0;if(l.memberId){split[l.memberId]=(split[l.memberId]||0)+amt;total+=amt;}});
+  if(total<=0 && tk.fare) total=Number(tk.fare)||0;
+  updateWhere_('Expenses','expenseId',p.expenseId,{
+    description:tk.description||((tk.mode||'Travel')+' ticket'+(tk.route?' — '+tk.route:'')),
+    amount:total,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
+    payersJSON:JSON.stringify(tk.payerId?(function(){var o={};o[tk.payerId]=total;return o;})():{}),
+    spentOn:(tk.date||ex.spentOn||now_().slice(0,10)),editedBy:me.userId,editedAt:now_(),
+    ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})
+  });
+  logAct_(trip.tripId,me,'edit','Edited '+(tk.mode||'travel')+' ticket');
+  backup_(); return getTripData_(trip.tripId,me);
+}
 
 /* ============================================================
  *  PAYMENTS

@@ -232,7 +232,7 @@ function money(n,cur){return (CUR[cur]||'')+Number(n||0).toLocaleString('en-IN',
 function money0(n,cur){return (CUR[cur]||'')+Math.round(Number(n||0)).toLocaleString('en-IN');}
 function smartCaps(s){return String(s).replace(/\S+/g,function(w){if(w.length>=2&&w===w.toUpperCase())return w;return w.charAt(0).toUpperCase()+w.slice(1);});}
 document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('capsField')&&t.value){var v=smartCaps(t.value);if(v!==t.value)t.value=v;}},true);
-var CATICON={Food:'🍽️',Travel:'🚕',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
+var CATICON={Food:'🍽️',Travel:'🚕','Train ticket':'🚆','Flight ticket':'✈️',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 function catIcon(c){return CATICON[c]||'📦';}
 var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
 function tripGradient(key){var s=String(key||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return TGRADS[n%TGRADS.length];}
@@ -275,7 +275,7 @@ var MCOLORS=['#19B47E','#5B8DEF','#E8577B','#8E63E6','#F0975B','#2BB1C9','#E8A13
 function memberColor(id){var s=String(id||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return MCOLORS[n%MCOLORS.length];}
 var SPLITMETA={equal:['🟰','Split equally','Pick who’s in. Everyone pays the same.'],custom:['🔢','Exact amounts','Type exactly how much each owes.'],percent:['％','By percentage','Enter a % split that’s fair.'],shares:['👨‍👩‍👧','By shares','Family of 3 → 3 shares · kid → ½ share.'],adjust:['➕➖','Equal + adjust','Split equal, then add extra for someone.']};
 function updateHint(type){var box=document.getElementById('splitHint');if(!box)return;var m=SPLITMETA[type]||SPLITMETA.equal;box.innerHTML='<div class="hi">'+m[0]+'</div><div class="ht">'+m[1]+'</div><div class="hs">'+m[2]+'</div>';}
-var CATWORDS=[['Food',['dinner','lunch','breakfast','food','restaurant','cafe','pizza','burger','meal','snack','khana','nashta','thali','dhaba','biryani','lassi','dessert','icecream','sweets','mithai']],['Travel',['train','flight','irctc','boarding','pnr','railway','airport','indigo','vistara','spicejet','airline','bus ticket','taxi','cab','uber','ola','auto','rickshaw','bus','metro','travel','ride','transport','toll','parking','ferry','boat ride']],['Stay',['hotel','stay','resort','hostel','room','airbnb','lodge','guesthouse','oyo','homestay','villa','cottage','check-in','checkin']],['Entry tickets',['entry','museum','monument','fort','palace','sightseeing','gate pass','entry fee','zoo','aquarium','theme park','water park']],['Fuel',['fuel','petrol','diesel','cng','gas station']],['Drinks',['drinks','beer','bar','coffee','tea','chai','juice','wine','cocktail','pub','soda','water bottle']],['Shopping',['shopping','shop','mall','clothes','souvenir','market','gift','store']],['Activities',['activity','trek','tour','adventure','boating','safari','rafting','zipline','spa','game']]];
+var CATWORDS=[['Food',['dinner','lunch','breakfast','food','restaurant','cafe','pizza','burger','meal','snack','khana','nashta','thali','dhaba','biryani','lassi','dessert','icecream','sweets','mithai']],['Train ticket',['train','irctc','railway','rail','tatkal','sleeper']],['Flight ticket',['flight','airport','airline','indigo','vistara','spicejet','air india','boarding pass','airfare']],['Travel',['taxi','cab','traveller','bike rental','scooter rental','uber','ola','auto','rickshaw','bus','metro','travel','ride','transport','toll','parking','ferry','boat ride']],['Stay',['hotel','stay','resort','hostel','room','airbnb','lodge','guesthouse','oyo','homestay','villa','cottage','check-in','checkin']],['Entry tickets',['entry','museum','monument','fort','palace','sightseeing','gate pass','entry fee','zoo','aquarium','theme park','water park']],['Fuel',['fuel','petrol','diesel','cng','gas station']],['Drinks',['drinks','beer','bar','coffee','tea','chai','juice','wine','cocktail','pub','soda','water bottle']],['Shopping',['shopping','shop','mall','clothes','souvenir','market','gift','store']],['Activities',['activity','trek','tour','adventure','boating','safari','rafting','zipline','spa','game']]];
 function guessCat(desc){var s=(desc||'').toLowerCase();if(s.length<2)return '';for(var i=0;i<CATWORDS.length;i++){var w=CATWORDS[i][1];for(var j=0;j<w.length;j++){if(s.indexOf(w[j])>=0)return CATWORDS[i][0];}}return '';}
 function sdate(iso){try{return new Date(iso).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});}catch(e){return'';}}
 function sdt(iso){try{return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
@@ -516,7 +516,7 @@ function wireStationAC(input,box){
 }
 
 function openNewTrip(){
-  var catDefault=['Food','Travel','Stay','Shopping','Entry tickets','Fuel','Other'];
+  var catDefault=['Food','Travel','Train ticket','Flight ticket','Stay','Shopping','Entry tickets','Fuel','Other'];
   var now=new Date(),thisMonth=now.getFullYear()+'-'+('0'+(now.getMonth()+1)).slice(-2);
   sheetModal('Create a new trip',
     '<div class="field" style="position:relative;z-index:30"><label>Destination</label><input id="tdest" class="capsField" placeholder="Search a destination" autocomplete="off"><div id="destSug" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;overflow:hidden;max-height:230px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
@@ -610,7 +610,7 @@ function renderDashboard(updating){
   if($('#settleBtn2'))$('#settleBtn2').onclick=openSettle;
   $('#allExp').onclick=openAllExpenses;$('#shareBtn').onclick=openShare;$('#addPpl').onclick=openPeople;$('#ticketBtn').onclick=openTripTickets;$('#locBtn').onclick=openLocations;
   if(t.coverId&&$('#heroBox'))$('#heroBox').style.background='linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42)),url(/img?id='+encodeURIComponent(t.coverId)+') center/cover';
-  var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted;}).slice(0,5);
+  var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted && !e.ticket;}).slice(0,5);
   if(!act.length)mini.innerHTML='<div class="muted" style="padding:10px 2px">No expenses yet. Tap ＋ to add one.</div>';
   else act.forEach(function(e){mini.appendChild(expRow(e));});
 }
@@ -881,7 +881,7 @@ function openAllExpenses(){
   var d=S.data;
   var head='<div class="top"><button class="back" id="bk2">‹ '+esc(d.trip.name)+'</button><h1 style="font-size:17px">All expenses</h1></div>';
   shell('trips','<div id="allList"></div>',head);$('#bk2').onclick=renderDashboard;
-  var list=$('#allList'),act=d.expenses.slice();
+  var list=$('#allList'),act=d.expenses.filter(function(e){return !e.ticket;});
   if(!act.length){list.innerHTML='<div class="center">No expenses yet</div>';return;}
   var groups={};act.forEach(function(e){var day=e.spentOn||String(e.addedAt).slice(0,10);(groups[day]=groups[day]||[]).push(e);});
   Object.keys(groups).sort().reverse().forEach(function(day){
@@ -996,14 +996,14 @@ function openTripTickets(){
   function tkCard(e){
     var tk=e.ticket||{};
     var modeIc={train:'🚆',flight:'✈️',bus:'🚌'}[tk.mode]||'🎟️';
-    var title=tk.train||tk.route||e.description;
+    var title=(tk.mode==='flight')?((tk.airline||'')+(tk.flightNo?' '+tk.flightNo:'')||tk.route||e.description):(tk.train||tk.route||e.description);
     var st=[];if(tk.cls)st.push(tk.cls);if(tk.date)st.push(tk.date);
     function codeOf(s){var m=String(s||'').match(/\(([^)]+)\)\s*$/);return m?m[1]:String(s||'').slice(0,4).toUpperCase();}
     function nameOf(s){return String(s||'').replace(/\s*\(([^)]+)\)\s*$/,'').trim();}
     var tag=e._done?'<span class="tkpill done">Journey done</span>':'<span class="tkpill up">Upcoming</span>';
     var routeHtml='';
     if(tk.from&&tk.to){routeHtml='<div class="bproute"><div class="end"><div class="code">'+esc(codeOf(tk.from))+'</div><div class="pl">'+esc(nameOf(tk.from))+'</div></div><div class="mid"><div class="tr">'+modeIc+'</div><div class="ln"></div></div><div class="end"><div class="code">'+esc(codeOf(tk.to))+'</div><div class="pl">'+esc(nameOf(tk.to))+'</div></div></div><div class="bpperf"></div>';}
-    var meta=[];if(tk.pnr)meta.push('<div><div class="l">PNR</div><div class="v">'+esc(tk.pnr)+'</div></div>');if(tk.cls)meta.push('<div><div class="l">Class</div><div class="v">'+esc(tk.cls)+'</div></div>');if(tk.trainNo&&tk.mode==='train')meta.push('<div><div class="l">Train</div><div class="v">'+esc(tk.trainNo)+'</div></div>');
+    var meta=[];if(tk.pnr)meta.push('<div><div class="l">PNR</div><div class="v">'+esc(tk.pnr)+'</div></div>');if(tk.cls)meta.push('<div><div class="l">Class</div><div class="v">'+esc(tk.cls)+'</div></div>');if(tk.trainNo&&tk.mode==='train')meta.push('<div><div class="l">Train</div><div class="v">'+esc(tk.trainNo)+'</div></div>');if(tk.mode==='flight'&&tk.airline)meta.push('<div><div class="l">Airline</div><div class="v">'+esc(tk.airline)+'</div></div>');if(tk.mode==='flight'&&tk.flightNo)meta.push('<div><div class="l">Flight</div><div class="v">'+esc(tk.flightNo)+'</div></div>');
     var pax=(tk.passengers||[]).map(function(x){
       var seat=[x.coach,x.seat].filter(Boolean).join(' · ');
       return '<div class="bprow"><div class="nm">'+esc(x.name)+'</div>'+(seat?'<span class="bpseat">💺 '+esc(seat)+'</span>':'')+'</div>';
@@ -1036,7 +1036,7 @@ function openEditTicket(expenseId){
   var e=d.expenses.filter(function(x){return x.expenseId===expenseId;})[0]; if(!e)return;
   loadStations();
   var tk=e.ticket||{};
-  var pre={mode:tk.mode,pnr:tk.pnr,train:tk.train,trainNo:tk.trainNo,route:tk.route,from:tk.from,to:tk.to,cls:tk.cls,date:tk.date||e.spentOn,fare:e.amount,payerId:(e.paidBy||Object.keys(e.payers||{})[0]||''),passengers:tk.passengers,_travelled:Object.keys(e.split||{})};
+  var pre={mode:tk.mode,pnr:tk.pnr,train:tk.train,trainNo:tk.trainNo,airline:tk.airline,flightNo:tk.flightNo,route:tk.route,from:tk.from,to:tk.to,cls:tk.cls,date:tk.date||e.spentOn,fare:e.amount,payerId:(e.paidBy||Object.keys(e.payers||{})[0]||''),passengers:tk.passengers,_travelled:Object.keys(e.split||{})};
   showTicketConfirm([pre],expenseId);
 }
 function timeAgo(iso){
@@ -1090,18 +1090,12 @@ function shareMyLocation(){
 function openTickets(){
   var d=S.data;if(d.trip.locked)return toast('Trip is locked');
   loadStations();
-  sheetModal('Add travel tickets','<p class="muted">Upload the ticket PDF to read it automatically, OR enter the details yourself.</p>\
-    <div class="field"><label>Ticket PDFs (one or many)</label><input id="tkFiles" type="file" accept="application/pdf" multiple></div>\
-    <button class="btn" id="tkRead">Read PDF</button>\
-    <div style="text-align:center;color:var(--sub);font-size:12px;margin:12px 0">— or —</div>\
-    <button class="btn out" id="tkManual">✍️ Enter manually</button><div id="tkOut" style="margin-top:12px"></div>',
+  sheetModal('Add ticket','<p class="muted">Kaunsi ticket add karni hai?</p>\
+    <button class="btn" id="tkTrain" style="margin-bottom:10px">🚆 Train ticket</button>\
+    <button class="btn" id="tkFlight">✈️ Flight ticket</button>',
     function(){
-      $('#tkManual').onclick=function(){closeModal();showTicketConfirm([{}]);};
-      $('#tkRead').onclick=function(){
-        var files=$('#tkFiles').files;if(!files.length)return toast('Choose at least one PDF');
-        var arr=[],done=0;
-        for(var i=0;i<files.length;i++){(function(f){var rd=new FileReader();rd.onload=function(){arr.push({name:f.name,dataUrl:rd.result});done++;if(done===files.length)doParse(arr);};rd.readAsDataURL(f);})(files[i]);}
-      };
+      $('#tkTrain').onclick=function(){closeModal();showTicketConfirm([{mode:'train'}]);};
+      $('#tkFlight').onclick=function(){closeModal();showTicketConfirm([{mode:'flight'}]);};
     });
 }
 function doParse(arr){
@@ -1133,17 +1127,31 @@ function showTicketConfirm(parsed,editId){
     }).join('');
     var clsOpts=CLS.map(function(c){return '<option value="'+c[0]+'"'+((tk.cls||'')===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('');
     if(tk.cls && !CLS.some(function(c){return c[0]===tk.cls;}))clsOpts='<option value="'+esc(tk.cls)+'" selected>'+esc(tk.cls)+'</option>'+clsOpts;
-    html+='<div class="card" data-ti="'+ti+'">\
-      <div class="row2"><div class="field" style="flex:1"><label>Type</label><select data-f="mode"><option value="train"'+(tk.mode==='train'?' selected':'')+'>Train</option><option value="flight"'+(tk.mode==='flight'?' selected':'')+'>Flight</option><option value="bus"'+(tk.mode==='bus'?' selected':'')+'>Bus</option></select></div>\
-      <div class="field" style="flex:1"><label>Total fare ('+(CUR[cur]||cur)+')</label><input data-f="fare" type="number" inputmode="decimal" placeholder="0" value="'+(tk.fare||'')+'"></div></div>\
-      <div class="row2"><div class="field" style="flex:1;position:relative;z-index:20"><label>From station</label><input data-f="from" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.from||'')+'"><div class="stSug" id="sugFrom'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div>\
-      <div class="field" style="flex:1;position:relative;z-index:20"><label>To station</label><input data-f="to" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.to||'')+'"><div class="stSug" id="sugTo'+ti+'" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40"></div></div></div>\
+    var modeV=(tk.mode||'train').toLowerCase();
+    var sugStyle='display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:40';
+    var fields;
+    if(modeV==='flight'){
+      fields='<div class="row2"><div class="field" style="flex:1"><label>Airline</label><input data-f="airline" class="capsField" placeholder="e.g. IndiGo" value="'+esc(tk.airline||'')+'"></div>\
+      <div class="field" style="flex:1"><label>Flight no.</label><input data-f="flightNo" placeholder="e.g. 6E 234" value="'+esc(tk.flightNo||'')+'"></div></div>\
+      <div class="row2"><div class="field" style="flex:1"><label>From</label><input data-f="from" class="capsField" placeholder="e.g. Delhi (DEL)" value="'+esc(tk.from||'')+'"></div>\
+      <div class="field" style="flex:1"><label>To</label><input data-f="to" class="capsField" placeholder="e.g. Goa (GOI)" value="'+esc(tk.to||'')+'"></div></div>\
+      <div class="row2"><div class="field" style="flex:1"><label>Journey date</label><input data-f="date" type="date" value="'+isoDate(tk.date)+'"></div>\
+      <div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div></div>';
+    } else {
+      fields='<div class="row2"><div class="field" style="flex:1;position:relative;z-index:20"><label>From station</label><input data-f="from" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.from||'')+'"><div class="stSug" id="sugFrom'+ti+'" style="'+sugStyle+'"></div></div>\
+      <div class="field" style="flex:1;position:relative;z-index:20"><label>To station</label><input data-f="to" class="capsField" autocomplete="off" placeholder="Type station" value="'+esc(tk.to||'')+'"><div class="stSug" id="sugTo'+ti+'" style="'+sugStyle+'"></div></div></div>\
       <div class="row2"><div class="field" style="flex:1"><label>Train number</label><input data-f="trainNo" inputmode="numeric" placeholder="e.g. 12834" value="'+esc(tk.trainNo||'')+'"></div>\
       <div class="field" style="flex:1"><label>Journey date</label><input data-f="date" type="date" value="'+isoDate(tk.date)+'"></div></div>\
       <div class="row2"><div class="field" style="flex:1"><label>Class</label><select data-f="cls">'+clsOpts+'</select></div>\
-      <div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div></div>\
-      <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOptsFor(tk.payerId||'')+'</select></div>\
-      <label class="muted" style="display:block;margin-bottom:4px">Who travelled (tick) — add each person\'s coach &amp; seat</label><div class="paxOn">'+rows+'</div>\
+      <div class="field" style="flex:1"><label>PNR / Ref</label><input data-f="pnr" value="'+esc(tk.pnr||'')+'"></div></div>';
+    }
+    html+='<div class="card" data-ti="'+ti+'">\
+      <div class="field"><label>'+(modeV==='flight'?'✈️ Flight ticket':'🚆 Train ticket')+'</label></div>\
+      <input type="hidden" data-f="mode" value="'+esc(modeV)+'">'+fields+'\
+      <div class="field"><label>Total fare ('+(CUR[cur]||cur)+')</label><input data-f="fare" type="number" inputmode="decimal" placeholder="0" value="'+(tk.fare||'')+'"></div>\
+      <div class="field"><label>Who paid (booked)</label><select data-f="payer">'+payOptsFor(tk.payerId||'')+'</select></div>'+
+      (modeV==='flight'?'':'<div class="field"><label>Attach ticket PDF (optional)</label><input data-f="pdf" type="file" accept="application/pdf"></div>')+'\
+      <label class="muted" style="display:block;margin-bottom:4px">Who travelled (tick) — add seat details</label><div class="paxOn">'+rows+'</div>\
       <div class="perInfo muted" style="margin:8px 2px"></div>\
       <input type="hidden" data-f="fileId" value="'+esc(tk.fileId||'')+'"></div>';
   });
@@ -1171,7 +1179,7 @@ function showTicketConfirm(parsed,editId){
       refresh(ti);
     });
     $('#tkSave').onclick=function(){
-      var tickets=[],bad=false;
+      var tickets=[],bad=false,pdfReads=[];
       parsed.forEach(function(_,ti){
         var cardEl=document.querySelector('[data-ti="'+ti+'"]');
         var g=function(f){var x=cardEl.querySelector('[data-f="'+f+'"]');return x?x.value:'';};
@@ -1186,19 +1194,25 @@ function showTicketConfirm(parsed,editId){
         if(fare<=0||!payMids.length){bad=true;return;}
         var per=fare/payMids.length,lines=payMids.map(function(mid){return {memberId:mid,amount:per};});
         var tk0=parsed[ti]||{};
+        var mode=g('mode')||'train';
         var from=g('from'),to=g('to');
         var route=(from&&to)?(from+' → '+to):(tk0.route||'');
         var train=g('trainNo')?(g('trainNo')+(route?' · '+route:'')):(tk0.train||route);
-        tickets.push({mode:g('mode'),pnr:g('pnr'),train:train,trainNo:g('trainNo')||tk0.trainNo||'',route:route,from:from||tk0.from||'',to:to||tk0.to||'',cls:g('cls')||tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:passengers});
-        [from,to].forEach(function(s){ s=String(s||'').trim(); if(s.length>=2 && !allStations().some(function(x){return x.toLowerCase()===s.toLowerCase();})){ call('api_addStation',{token:S.token,name:s}).then(function(r){if(r&&r.stations)S.customStations=r.stations;}).catch(function(){}); } });
+        var tObj={mode:mode,pnr:g('pnr'),train:train,trainNo:g('trainNo')||tk0.trainNo||'',airline:g('airline')||tk0.airline||'',flightNo:g('flightNo')||tk0.flightNo||'',route:route,from:from||tk0.from||'',to:to||tk0.to||'',cls:g('cls')||tk0.cls||'',date:g('date'),fare:fare,payerId:g('payer'),fileId:g('fileId'),lines:lines,passengers:passengers};
+        tickets.push(tObj);
+        var pdfEl=cardEl.querySelector('[data-f="pdf"]');
+        if(pdfEl&&pdfEl.files&&pdfEl.files[0]){pdfReads.push(new Promise(function(res){var rd=new FileReader();rd.onload=function(){tObj.receiptDataUrl=rd.result;res();};rd.onerror=function(){res();};rd.readAsDataURL(pdfEl.files[0]);}));}
+        if(mode!=='flight'){[from,to].forEach(function(s){ s=String(s||'').trim(); if(s.length>=2 && !allStations().some(function(x){return x.toLowerCase()===s.toLowerCase();})){ call('api_addStation',{token:S.token,name:s}).then(function(r){if(r&&r.stations)S.customStations=r.stations;}).catch(function(){}); } });}
       });
-      if(bad)return toast('Har ticket me total fare aur kam se kam ek paying person chuno');
+      if(bad)return toast('Total fare aur kam se kam ek paying person chuno');
       loading(true);
-      if(editId){
-        call('api_editTicket',{token:S.token,tripId:S.trip.tripId,expenseId:editId,ticket:tickets[0]}).then(function(d){loading(false);closeModal();setData(d);openTripTickets();toast('Ticket updated');}).catch(function(e){loading(false);toast(e);});
-      } else {
-        call('api_addTicketExpenses',{token:S.token,tripId:S.trip.tripId,tickets:tickets}).then(function(d){loading(false);closeModal();setData(d);renderDashboard();toast('Tickets added');}).catch(function(e){loading(false);toast(e);});
-      }
+      Promise.all(pdfReads).then(function(){
+        if(editId){
+          call('api_editTicket',{token:S.token,tripId:S.trip.tripId,expenseId:editId,ticket:tickets[0]}).then(function(d){loading(false);closeModal();setData(d);openTripTickets();toast('Ticket updated');}).catch(function(e){loading(false);toast(e);});
+        } else {
+          call('api_addTicketExpenses',{token:S.token,tripId:S.trip.tripId,tickets:tickets}).then(function(d){loading(false);closeModal();setData(d);openTripTickets();toast('Ticket added');}).catch(function(e){loading(false);toast(e);});
+        }
+      });
     };
   });
 }
@@ -1228,10 +1242,9 @@ function openPeople(){
   var byId={};d.members.forEach(function(x){byId[x.memberId]=x;});
   var list=d.members.map(function(m){
     var hn=m.headId&&byId[m.headId]?byId[m.headId].name:'';
-    var tag=(m.isFamily?' <span class="pill">family</span>':'')+(m.isKid?' <span class="pill">kid'+(m.kidShare&&m.kidShare!=='full'?' · '+m.kidShare:'')+'</span>':'')+(hn?' <span class="pill">💳 '+esc(hn)+' pays</span>':'');
-    var btn='';
-    if(canAdd){ if(m.userId) btn='<button class="btn out sm linkBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Pay under</button>'; else btn='<button class="btn out sm headBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px">Who pays</button><button class="btn out sm kidBtn" data-m="'+m.memberId+'" style="width:auto;padding:8px 12px;margin-left:6px">'+(m.isKid?'Edit kid':'Mark as kid')+'</button>'; }
-    return '<div class="chk"><div class="avatar">'+esc((m.name||'?').charAt(0).toUpperCase())+'</div><span class="nm">'+esc(m.name)+tag+'</span>'+btn+'</div>';
+    var tags=(m.isFamily?' <span class="pill">family</span>':'')+(m.isKid?' <span class="pill">kid'+(m.kidShare&&m.kidShare!=='full'?' · '+m.kidShare:'')+'</span>':'');
+    var sub=hn?'<div class="muted" style="font-size:12px;margin-top:2px">Under '+esc(hn)+'</div>':'';
+    return '<div class="chk peopleRow"'+(canAdd?' data-m="'+m.memberId+'" style="cursor:pointer"':'')+'><div class="avatar">'+esc((m.name||'?').charAt(0).toUpperCase())+'</div><div style="flex:1;min-width:0"><span class="nm" style="font-weight:600">'+esc(m.name)+tags+'</span>'+sub+'</div>'+(canAdd?'<span style="color:var(--sub);font-size:18px;flex:0 0 auto">›</span>':'')+'</div>';
   }).join('');
   var html='<div class="card" style="padding:4px 16px">'+list+'</div>\
     <div class="card" style="margin-top:14px;padding:12px 16px;font-size:13px"><b>Invite link & code</b><div class="muted" style="margin-top:4px">Code: <b style="letter-spacing:1px">'+esc(t.code)+'</b></div><button class="btn out sm" id="copyInvite" style="margin-top:10px">Copy invite link</button></div>';
@@ -1243,10 +1256,22 @@ function openPeople(){
     $('#copyInvite').onclick=function(){var link=t.webUrl+'?join='+t.code;if(navigator.clipboard)navigator.clipboard.writeText(link);toast('Invite link copied');};
     if($('#addUBtn'))$('#addUBtn').onclick=function(){var u=$('#addU').value.trim();if(!u)return toast('Enter a username');loading(true);call('api_addMemberByUsername',{token:S.token,tripId:t.tripId,username:u}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
     if($('#addFBtn'))$('#addFBtn').onclick=function(){var n=$('#addF').value.trim();if(!n)return toast('Enter a name');loading(true);call('api_addFamilyMember',{token:S.token,tripId:t.tripId,name:n}).then(function(dd){loading(false);setData(dd);closeModal();openPeople();toast('Added');}).catch(function(e){loading(false);toast(e);});};
-    Array.prototype.forEach.call(document.querySelectorAll('.kidBtn'),function(b){b.onclick=function(){openKidSheet(b.getAttribute('data-m'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('.linkBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
-    Array.prototype.forEach.call(document.querySelectorAll('.headBtn'),function(b){b.onclick=function(){openLinkHead(b.getAttribute('data-m'));};});
+    Array.prototype.forEach.call(document.querySelectorAll('.peopleRow'),function(r){r.onclick=function(){openPersonMenu(r.getAttribute('data-m'));};});
     if($('#addPlace'))$('#addPlace').onclick=function(){openCreatePlaceholder(t.tripId);};
+  });
+}
+function openPersonMenu(memberId){
+  var m=S.data.members.filter(function(x){return x.memberId===memberId;})[0]||{};
+  var btns;
+  if(m.userId){
+    btns='<button class="btn" id="pmHead">💳 '+(m.headId?'Change who pays':'Pay under someone')+'</button>';
+  } else {
+    btns='<button class="btn" id="pmHead">💳 '+(m.headId?'Change who pays':'Who pays for this person')+'</button>\
+      <button class="btn out" id="pmKid" style="margin-top:10px">🧒 '+(m.isKid?'Edit kid':'Mark as kid')+'</button>';
+  }
+  sheetModal(esc(m.name),btns,function(){
+    if($('#pmHead'))$('#pmHead').onclick=function(){openLinkHead(memberId);};
+    if($('#pmKid'))$('#pmKid').onclick=function(){openKidSheet(memberId);};
   });
 }
 function openLinkHead(memberId){

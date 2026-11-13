@@ -19,7 +19,7 @@ var SUB_DB='1. Database', SUB_RECEIPTS='2. Receipts', SUB_REPORTS='3. Reports',
     SUB_PHOTOS='4. Profile Photos', SUB_UPDATES='5. App Updates', SUB_BACKUP='6. Backup';
 var SS_NAME='Trip Expense Tracker — Database';
 var TOKEN_DAYS=30;
-var DEFAULT_CATS=['Food','Travel','Stay','Shopping','Entry tickets','Fuel','Other'];
+var DEFAULT_CATS=['Food','Travel','Train ticket','Flight ticket','Stay','Shopping','Entry tickets','Fuel','Other'];
 
 /* ============================================================
  *  WEB ENTRY
@@ -545,12 +545,14 @@ function api_addTicketExpenses(p){
     (tk.lines||[]).forEach(function(l){ var amt=Number(l.amount)||0; if(l.memberId){ split[l.memberId]=(split[l.memberId]||0)+amt; total+=amt; } });
     if(total<=0 && tk.fare){ total=Number(tk.fare)||0; }
     var id='e-'+Utilities.getUuid().slice(0,8);
-    appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:tk.description||((tk.mode||'Travel')+' ticket'+(tk.route?' — '+tk.route:'')),
-      category:'Travel',amount:total,currency:trip.currency,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
-      receiptId:tk.fileId||'',addedBy:me.userId,addedAt:now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
+    var tkCat=(String(tk.mode||'').toLowerCase()==='flight')?'Flight ticket':'Train ticket';
+    var fid=tk.fileId||''; if(tk.receiptDataUrl){ try{ fid=saveReceipt_(tk.receiptDataUrl,trip.name,id); }catch(e){} }
+    appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:tk.description||((tkCat)+(tk.route?' — '+tk.route:'')),
+      category:tkCat,amount:total,currency:trip.currency,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
+      receiptId:fid,addedBy:me.userId,addedAt:now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
       payersJSON:JSON.stringify(tk.payerId?(function(){var o={};o[tk.payerId]=total;return o;})():{}),
       note:tk.note||'',spentOn:(tk.date||now_().slice(0,10)),
-      ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})});
+      ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',airline:tk.airline||'',flightNo:tk.flightNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})});
     logAct_(trip.tripId,me,'add','Added '+(tk.mode||'travel')+' ticket ('+fmtMoney_(total,trip.currency)+')');
   });
   backup_(); return getTripData_(trip.tripId,me);
@@ -563,12 +565,13 @@ function api_editTicket(p){
   var split={},total=0;
   (tk.lines||[]).forEach(function(l){var amt=Number(l.amount)||0;if(l.memberId){split[l.memberId]=(split[l.memberId]||0)+amt;total+=amt;}});
   if(total<=0 && tk.fare) total=Number(tk.fare)||0;
+  var tkCat=(String(tk.mode||'').toLowerCase()==='flight')?'Flight ticket':'Train ticket';
   updateWhere_('Expenses','expenseId',p.expenseId,{
-    description:tk.description||((tk.mode||'Travel')+' ticket'+(tk.route?' — '+tk.route:'')),
-    amount:total,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
+    description:tk.description||((tkCat)+(tk.route?' — '+tk.route:'')),
+    category:tkCat,amount:total,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
     payersJSON:JSON.stringify(tk.payerId?(function(){var o={};o[tk.payerId]=total;return o;})():{}),
     spentOn:(tk.date||ex.spentOn||now_().slice(0,10)),editedBy:me.userId,editedAt:now_(),
-    ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})
+    ticketJSON:JSON.stringify({mode:tk.mode||'',pnr:tk.pnr||'',train:tk.train||'',trainNo:tk.trainNo||'',airline:tk.airline||'',flightNo:tk.flightNo||'',route:tk.route||'',from:tk.from||'',to:tk.to||'',cls:tk.cls||'',date:tk.date||'',fare:total,payerId:tk.payerId||'',passengers:tk.passengers||[]})
   });
   logAct_(trip.tripId,me,'edit','Edited '+(tk.mode||'travel')+' ticket');
   backup_(); return getTripData_(trip.tripId,me);
@@ -600,9 +603,14 @@ function migrateTripCats_(tripId){
     var ci=idx['category'], ti=idx['tripId'], tj=idx['ticketJSON'], changed=false;
     for(var r=0;r<vals.length;r++){
       if(String(vals[r][ti])!==String(tripId)) continue;
-      if(String(vals[r][ci])==='Tickets'){
-        var hasTk=vals[r][tj]&&String(vals[r][tj]).length>2;
-        vals[r][ci]=hasTk?'Travel':'Entry tickets'; changed=true;
+      var cur=String(vals[r][ci]);
+      var raw=(vals[r][tj]&&String(vals[r][tj]).length>2)?String(vals[r][tj]):'';
+      if(raw){
+        var mode='train'; try{var tko=JSON.parse(raw); if(tko&&tko.mode) mode=String(tko.mode).toLowerCase();}catch(e){}
+        var want=(mode==='flight')?'Flight ticket':'Train ticket';
+        if(cur!==want){ vals[r][ci]=want; changed=true; }
+      } else if(cur==='Tickets'){
+        vals[r][ci]='Entry tickets'; changed=true;
       }
     }
     if(changed) rng.setValues(vals);
@@ -610,7 +618,7 @@ function migrateTripCats_(tripId){
   var trip=getTrip_(tripId), cats=[]; try{cats=JSON.parse(trip.cats||'[]');}catch(x){cats=[];}
   var ncats=[],seen={},mutated=false;
   cats.forEach(function(c){ var nc=(c==='Tickets')?'Entry tickets':c; if(nc!==c)mutated=true; if(!seen[nc]){seen[nc]=1;ncats.push(nc);} });
-  if(ncats.indexOf('Entry tickets')<0){ ncats.push('Entry tickets'); mutated=true; }
+  ['Train ticket','Flight ticket','Entry tickets'].forEach(function(need){ if(ncats.indexOf(need)<0){ ncats.push(need); mutated=true; } });
   if(mutated) updateWhere_('Trips','tripId',tripId,{cats:JSON.stringify(ncats)});
 }
 function getTripData_(tripId,me){

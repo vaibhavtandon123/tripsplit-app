@@ -564,7 +564,7 @@ function renderDashboard(updating){
   var owed=myBal>=0;
   var balCard='<div class="balc2">\
     <div class="balc2-top">'+(owed?'You are owed':'You owe')+'</div>\
-    <div class="balc2-v">'+(owed?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
+    <div class="balc2-v" style="color:'+(owed?'#C9FBE8':'#FF6B6B')+'">'+(owed?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
     '+(d.settle.length?'<button class="balc2-cta" id="settleBtn">Settle up '+d.settle.length+' '+(d.settle.length==1?'payment':'payments')+' ›</button>':'<div class="balc2-ok">✓ Everyone is settled up</div>')+'\
     <div class="balc2-chips">\
       <div class="bch"><div class="bl">Total</div><div class="bv">'+money0(d.total,cur)+'</div></div>\
@@ -884,6 +884,13 @@ function openSettle(){
       } else {
         html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center"><b>'+esc(g.members[0].name)+'</b><span style="margin-left:auto;font-weight:700">'+money(g.members[0].cost,cur)+'</span></div>';
       }
+    });
+  }
+  var paidList=stats.filter(function(s){return (s.paid||0)>0.5;}).sort(function(a,b){return b.paid-a.paid;});
+  if(paidList.length){
+    html+='<h2 class="sec" style="margin-top:20px">Jeb se diya (paid out of pocket)</h2>';
+    paidList.forEach(function(s){
+      html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center"><b>'+esc(s.name)+'</b><span style="margin-left:auto;font-weight:700">'+money(s.paid,cur)+'</span></div>';
     });
   }
   html+='<button class="btn out sm" id="shareFromSettle" style="margin-top:14px">📤 Send everyone the summary</button>';

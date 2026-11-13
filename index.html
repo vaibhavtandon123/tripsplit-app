@@ -206,6 +206,11 @@ h2.sec{font-size:17px;font-weight:800;margin:22px 2px 8px;letter-spacing:-.2px;}
 </style>
 </head>
 <body>
+<div id="splash" style="position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#4FB596,#2E8A70);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s ease">
+  <img id="splashLogo" alt="" style="width:92px;height:92px;border-radius:22px;box-shadow:0 12px 34px rgba(0,0,0,.25)">
+  <div style="margin-top:18px;color:#fff;font-weight:800;font-size:23px;letter-spacing:-.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">TripSplit</div>
+</div>
+<script>try{document.getElementById('splashLogo').src=document.querySelector('link[rel=apple-touch-icon]').href;}catch(e){}</script>
 <div id="frame">
 <div id="offline" class="off hidden">You are offline — changes will sync when back online.</div>
 <div class="app" id="app"></div>
@@ -296,14 +301,17 @@ window.addEventListener('online',function(){$('#offline').classList.add('hidden'
 window.addEventListener('offline',function(){$('#offline').classList.remove('hidden');});
 if(!navigator.onLine)$('#offline').classList.remove('hidden');
 
+function hideSplash(){var s=document.getElementById('splash');if(s){s.style.opacity='0';setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},450);}}
+
 /* ---------- boot ---------- */
 (function boot(){
-  if(!S.token){renderAuth();return;}
-  var cu=cacheGet('tet_user');if(cu){S.user=cu;flushQueue();renderTrips();}
+  if(!S.token){renderAuth();hideSplash();return;}
+  var cu=cacheGet('tet_user');if(cu){S.user=cu;flushQueue();renderTrips();hideSplash();}
   else loading(true);
-  call('api_me',S.token).then(function(u){S.user=u;cacheSet('tet_user',u);loading(false);flushQueue();if(!cu)renderTrips();})
-    .catch(function(){loading(false);logout();});
+  call('api_me',S.token).then(function(u){S.user=u;cacheSet('tet_user',u);loading(false);flushQueue();if(!cu)renderTrips();hideSplash();})
+    .catch(function(){loading(false);logout();hideSplash();});
 })();
+setTimeout(hideSplash,4000);
 
 /* ===========================================================
  *  AUTH

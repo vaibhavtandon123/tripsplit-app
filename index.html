@@ -670,7 +670,7 @@ function openAddExpense(existing){
     <div class="splithint" id="splitHint"></div>\
     <div class="seg" id="splitSeg"><button data-t="equal" class="'+(splitType==='equal'?'on':'')+'">=</button><button data-t="custom" class="'+(splitType==='custom'?'on':'')+'">1.23</button><button data-t="percent" class="'+(splitType==='percent'?'on':'')+'">%</button><button data-t="shares" class="'+(splitType==='shares'?'on':'')+'">|||</button><button data-t="adjust" class="'+(splitType==='adjust'?'on':'')+'">+/−</button></div>\
     <label class="muted" style="margin-top:4px;display:block;font-weight:700">Split between</label><div id="splitList"></div><div id="splitInfo" class="muted" style="margin:8px 2px;font-weight:600"></div>\
-    <div class="field"><label>Note (optional)</label><input id="eNote" placeholder="e.g. advance diya, baaki baad me" value="'+esc(ex?ex.note:'')+'"></div>\
+    <div class="field"><label>Note (optional)</label><input id="eNote" placeholder="e.g. paid advance, rest later" value="'+esc(ex?ex.note:'')+'"></div>\
     <div class="field"><label>Receipt photo (optional)</label><input id="eReceipt" type="file" accept="image/*"></div>\
     <button class="btn" id="saveExp">'+(ex?'Save changes':'Add expense')+'</button>'+(ex?'<button class="btn danger sm" id="delExp" style="margin-top:10px">Delete expense</button>':'');
   sheetModal(ex?'Edit expense':'Add an expense',html,function(){
@@ -888,7 +888,7 @@ function openSettle(){
   }
   var paidList=stats.filter(function(s){return (s.paid||0)>0.5;}).sort(function(a,b){return b.paid-a.paid;});
   if(paidList.length){
-    html+='<h2 class="sec" style="margin-top:20px">Jeb se diya (paid out of pocket)</h2>';
+    html+='<h2 class="sec" style="margin-top:20px">Paid out of pocket</h2>';
     paidList.forEach(function(s){
       html+='<div class="card jebrow" data-jeb="'+esc(s.memberId)+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;cursor:pointer"><b>'+esc(s.name)+'</b><span style="margin-left:auto;font-weight:700">'+money(s.paid,cur)+'</span><span style="color:var(--sub);margin-left:8px">›</span></div>';
     });
@@ -937,10 +937,10 @@ function openPaidDetail(mid){
     rows.forEach(function(r,i){
       html+='<div class="card pdrow" data-pdi="'+i+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer"><span style="font-size:20px">'+catIcon(r.e.category)+'</span><div style="flex:1;min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.e.description||r.e.category)+'</div><div class="muted" style="font-size:12px">'+sdate(r.e.spentOn)+'</div></div><span style="font-weight:700">'+money(r.amt,cur)+'</span><span style="color:var(--sub);margin-left:6px">›</span></div>';
     });
-    html+='<div class="card" style="padding:12px 16px;margin-top:4px;display:flex;align-items:center;background:var(--mint);color:#fff"><b>Total diya</b><span style="margin-left:auto;font-weight:800">'+money(total,cur)+'</span></div>';
+    html+='<div class="card" style="padding:12px 16px;margin-top:4px;display:flex;align-items:center;background:var(--mint);color:#fff"><b>Total paid</b><span style="margin-left:auto;font-weight:800">'+money(total,cur)+'</span></div>';
   }
   html+='<button class="btn out sm" id="backToSettle" style="margin-top:14px">‹ Back to settle up</button>';
-  sheetModal(name+' ne kya-kya diya',html,function(){
+  sheetModal('Paid by '+name,html,function(){
     $('#backToSettle').onclick=function(){openSettle();};
     Array.prototype.forEach.call(document.querySelectorAll('.pdrow'),function(el){
       el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e);};
@@ -1020,7 +1020,7 @@ function renderLocBody(){
   var d=S.data,box=$('#locBody');if(!box)return;
   var mine=(d.members.filter(function(m){return m.memberId===d.me.memberId;})[0]||{});
   var iShare=mine.lat!=null&&mine.lng!=null;
-  var h='<div class="card" style="background:var(--soft)"><div class="muted" style="font-size:12px;line-height:1.5">📍 Location sirf tab jaati hai jab tum button dabao — din bhar nahi chalti, battery safe. Lost ho to Google Maps live share use karo.</div></div>';
+  var h='<div class="card" style="background:var(--soft)"><div class="muted" style="font-size:12px;line-height:1.5">📍 Your location is shared only when you tap the button — it does not run all day, so your battery stays safe. If someone gets lost, use Google Maps live location share.</div></div>';
   h+='<button class="btn" id="shareLoc">📍 '+(iShare?'Update my location':'Share my location now')+'</button>';
   h+='<button class="btn sec" id="mapsLive" style="margin-top:10px">🗺️ Share live on Google Maps</button>';
   if(iShare)h+='<button class="btn out sm" id="stopLoc" style="margin-top:10px">Stop sharing my location</button>';
@@ -1036,7 +1036,7 @@ function renderLocBody(){
   if(!any)h+='<div class="muted" style="padding:10px 2px">No members with a phone yet.</div>';
   box.innerHTML=h;
   $('#shareLoc').onclick=shareMyLocation;
-  $('#mapsLive').onclick=function(){window.open('https://www.google.com/maps','_blank');toast('Google Maps me "Location sharing" se live bhejo');};
+  $('#mapsLive').onclick=function(){window.open('https://www.google.com/maps','_blank');toast('In Google Maps, use "Location sharing" to share live location');};
   if($('#stopLoc'))$('#stopLoc').onclick=function(){loading(true);call('api_clearLocation',{token:S.token,tripId:S.trip.tripId}).then(function(dd){loading(false);setData(dd);renderLocBody();toast('Stopped');}).catch(function(e){loading(false);toast(e);});};
 }
 function shareMyLocation(){

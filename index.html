@@ -34,8 +34,9 @@ body{position:fixed;inset:0;display:flex;flex-direction:row;justify-content:cent
 @media(min-width:760px){body{background:#0d0e10;}#frame{max-width:460px;box-shadow:0 0 70px rgba(0,0,0,.5);}}
 a{color:inherit;}
 .app{flex:1;display:flex;flex-direction:column;min-height:0;}
-.screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 20px 100px;touch-action:pan-y;animation:scrIn .26s cubic-bezier(.22,.61,.36,1);}
-@keyframes scrIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 20px 100px;touch-action:pan-y;animation:scrFwd .24s cubic-bezier(.22,.61,.36,1);}
+@keyframes scrFwd{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+@keyframes scrBack{from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:none;}}
 @media (prefers-reduced-motion:reduce){.screen{animation:none;}}
 .hidden{display:none !important;}
 .top{display:flex;align-items:center;gap:10px;padding:14px 16px 6px;}
@@ -367,7 +368,10 @@ function shell(active,bodyHtml,headerHtml){
   $('#app').innerHTML='';
   var wrap=el('<div class="app" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>');
   if(headerHtml)wrap.appendChild(el(headerHtml));
-  var scr=el('<div class="screen"></div>');scr.innerHTML=bodyHtml;wrap.appendChild(scr);
+  var scr=el('<div class="screen"></div>');scr.innerHTML=bodyHtml;
+  if(_backNav){scr.style.animation='scrBack .24s cubic-bezier(.22,.61,.36,1)';}
+  _backNav=false;
+  wrap.appendChild(scr);
   wrap.appendChild(tabBar(active));$('#app').appendChild(wrap);enablePull(scr);return scr;
 }
 /* ---- live refresh: swipe-down + when app returns to foreground ---- */
@@ -375,9 +379,9 @@ function refreshCurrent(cb){
   cb=cb||function(){};
   if(!S.token||($('#modal')&&$('#modal').innerHTML)){cb();return;}
   if(S.trip&&S.trip.tripId){
-    call('api_tripData',{token:S.token,tripId:S.trip.tripId}).then(function(d){if(d&&d.trip){cacheSet('tet_trip_'+d.trip.tripId,d);if(S.trip&&S.trip.tripId===d.trip.tripId){S.trip=d.trip;S.data=d;if(S.tab==='trips'&&!(($('#modal')||{}).innerHTML))renderDashboard();}}}).catch(function(){}).then(cb);
+    call('api_tripData',{token:S.token,tripId:S.trip.tripId}).then(function(d){if(d&&d.trip){cacheSet('tet_trip_'+d.trip.tripId,d);if(S.trip&&S.trip.tripId===d.trip.tripId){S.trip=d.trip;S.data=d;if(document.querySelector('.balc2')&&!(($('#modal')||{}).innerHTML))renderDashboard();}}}).catch(function(){}).then(cb);
   } else if(S.tab==='trips'){
-    call('api_myTrips',S.token).then(function(list){cacheSet('tet_trips',list);if(S.tab==='trips'&&!S.trip)paintTrips(list);}).catch(function(){}).then(cb);
+    call('api_myTrips',S.token).then(function(list){cacheSet('tet_trips',list);if($('#triplist')&&!S.trip)paintTrips(list);}).catch(function(){}).then(cb);
   } else if(S.tab==='friends'&&typeof renderFriends==='function'){ renderFriends();cb();
   } else if(S.tab==='activity'&&typeof renderActivityTab==='function'){ renderActivityTab();cb();
   } else cb();
@@ -395,6 +399,16 @@ function onForeground(){ if(document.hidden||!S.token)return; var n=Date.now(); 
 document.addEventListener('visibilitychange',onForeground);
 window.addEventListener('focus',onForeground);
 window.addEventListener('pageshow',onForeground);
+/* ---- in-app back (Android/iOS) so hardware/gesture back navigates inside the app, not exit ---- */
+var _backNav=false;
+function appGoBack(){
+  var m=$('#modal'); if(m&&m.innerHTML&&m.innerHTML.trim()){ closeModal(); return true; }
+  if(document.querySelector('.balc2')){ _backNav=true; renderTrips(); return true; }          // on a trip dashboard → trips list
+  if(document.querySelector('.back')){ _backNav=true; renderDashboard(); return true; } // a sub-page → dashboard
+  return false; // trips list / top level → allow exit
+}
+window.addEventListener('popstate',function(){ if(appGoBack()){ try{history.pushState({tet:1},'');}catch(e){} } });
+try{history.pushState({tet:1},'');}catch(e){}
 function tabBar(active){
   var ic={trips:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/></svg>',
     friends:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.3"/></svg>',

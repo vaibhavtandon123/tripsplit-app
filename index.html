@@ -847,10 +847,13 @@ function openSettle(){
   var sv=cacheGet('tet_simplify_'+d.trip.tripId); var simplify=(sv===false)?false:true;
   var hasDirect=!!(d.settleDirect);
   var list=(simplify||!hasDirect)?(d.settle||[]):(d.settleDirect||[]);
+  function settleRowsHtml(arr){
+    if(!arr.length)return '<div class="center" style="height:auto;padding:30px 0">✓ Everyone is settled up</div>';
+    return arr.map(function(s,i){return '<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(s.fromName)+'</b><span class="ar">→</span><b>'+esc(s.toName)+'</b><span style="margin-left:auto;font-weight:700;font-size:16px">'+money(s.amount,cur)+'</span></div><div class="row2" style="margin-top:10px"><button class="btn sm orange" data-upi="'+i+'">Pay by UPI</button><button class="btn sm sec" data-paid="'+i+'">Mark paid</button></div></div>';}).join('');
+  }
   var html='';
-  if(hasDirect)html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:13px 16px;margin-bottom:12px"><div style="flex:1"><b style="font-size:14px">Simplify debts</b><div class="muted" style="font-size:12px">'+(simplify?'Fewest payments (combined)':'Direct — pay who you owe')+'</div></div><label class="switch"><input type="checkbox" id="simpTog"'+(simplify?' checked':'')+'><span class="track"></span></label></div>';
-  if(!list.length)html+='<div class="center" style="height:auto;padding:30px 0">✓ Everyone is settled up</div>';
-  else list.forEach(function(s,i){html+='<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(s.fromName)+'</b><span class="ar">→</span><b>'+esc(s.toName)+'</b><span style="margin-left:auto;font-weight:700;font-size:16px">'+money(s.amount,cur)+'</span></div><div class="row2" style="margin-top:10px"><button class="btn sm orange" data-upi="'+i+'">Pay by UPI</button><button class="btn sm sec" data-paid="'+i+'">Mark paid</button></div></div>';});
+  if(hasDirect)html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:13px 16px;margin-bottom:12px"><div style="flex:1"><b style="font-size:14px">Simplify debts</b><div class="muted" id="simpSub" style="font-size:12px">'+(simplify?'Fewest payments (combined)':'Direct — pay who you owe')+'</div></div><label class="switch"><input type="checkbox" id="simpTog"'+(simplify?' checked':'')+'><span class="track"></span></label></div>';
+  html+='<div id="settleList" style="transition:opacity .18s">'+settleRowsHtml(list)+'</div>';
   var stats=d.memberStats||[];
   if(stats.length){
     var groups={};
@@ -869,12 +872,22 @@ function openSettle(){
   }
   html+='<button class="btn out sm" id="shareFromSettle" style="margin-top:14px">📤 Send everyone the summary</button>';
   sheetModal('Settle up — who pays whom',html,function(){
-    if($('#simpTog'))$('#simpTog').onchange=function(){cacheSet('tet_simplify_'+d.trip.tripId,this.checked);closeModal();openSettle();};
-    list.forEach(function(s,i){
-      var upi=$('[data-upi="'+i+'"]'),paid=$('[data-paid="'+i+'"]');
-      if(upi)upi.onclick=function(){window.location.href='upi://pay?pa=&pn='+encodeURIComponent(s.toName)+'&am='+s.amount+'&cu=INR&tn='+encodeURIComponent('Trip '+d.trip.name);setTimeout(function(){toast('If no UPI app opened, pay manually then Mark paid');},1200);};
-      if(paid)paid.onclick=function(){loading(true);call('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi'}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Payment recorded');}).catch(function(e){loading(false);toast(e);});};
-    });
+    function wireRows(arr){
+      var box=$('#settleList');if(!box)return;
+      arr.forEach(function(s,i){
+        var upi=box.querySelector('[data-upi="'+i+'"]'),paid=box.querySelector('[data-paid="'+i+'"]');
+        if(upi)upi.onclick=function(){window.location.href='upi://pay?pa=&pn='+encodeURIComponent(s.toName)+'&am='+s.amount+'&cu=INR&tn='+encodeURIComponent('Trip '+d.trip.name);setTimeout(function(){toast('If no UPI app opened, pay manually then Mark paid');},1200);};
+        if(paid)paid.onclick=function(){loading(true);call('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi'}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Payment recorded');}).catch(function(e){loading(false);toast(e);});};
+      });
+    }
+    wireRows(list);
+    if($('#simpTog'))$('#simpTog').onchange=function(){
+      var on=this.checked; cacheSet('tet_simplify_'+d.trip.tripId,on);
+      var nl=(on||!hasDirect)?(d.settle||[]):(d.settleDirect||[]);
+      var box=$('#settleList'); if($('#simpSub'))$('#simpSub').textContent=on?'Fewest payments (combined)':'Direct — pay who you owe';
+      box.style.opacity='0';
+      setTimeout(function(){ box.innerHTML=settleRowsHtml(nl); wireRows(nl); box.style.opacity='1'; },170);
+    };
     $('#shareFromSettle').onclick=function(){closeModal();openShare();};
   });
 }

@@ -233,6 +233,14 @@ function money0(n,cur){return (CUR[cur]||'')+Math.round(Number(n||0)).toLocaleSt
 function smartCaps(s){return String(s).replace(/\S+/g,function(w){if(w.length>=2&&w===w.toUpperCase())return w;return w.charAt(0).toUpperCase()+w.slice(1);});}
 document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains('capsField')&&t.value){var v=smartCaps(t.value);if(v!==t.value)t.value=v;}},true);
 var CATICON={Food:'🍽️',Travel:'🚕','Train ticket':'🚆','Flight ticket':'✈️',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
+/* Changelog — newest first. New features bump major (x.0.0); fixes/small changes bump minor/patch. */
+var CHANGELOG=[
+  {v:'4.0.0',d:'2026-11-13',notes:['Train & Flight tickets are now separate categories','Add ticket now asks Train or Flight — Flight has a full form; Train is manual with optional PDF attach','Tickets now live only in the Tickets tab (hidden from Recent & All expenses, still counted in totals)','People screen redesigned — tap a person for options (Pay under / Who pays / kid)','Admins can permanently delete a removed expense']},
+  {v:'3.2.0',d:'2026-11-13',notes:['Instant, Splitwise-style updates with background sync','Settle-up now shows who paid out of pocket — tap a name to see each payment','Tickets page shows upcoming journeys and total tickets cost']},
+  {v:'3.1.1',d:'2026-11-13',notes:['Fixed duplicate expense/payment bug','Balance shows green when you are owed, red when you owe','Green launch screen (no more black flash)']},
+  {v:'3.0.0',d:'2026-11-12',notes:['Travel tickets module with PNR, stations and per-passenger seats','Pay-under: put one person under another for settle-up','Placeholder members with their own balance','Simplify-debts toggle and spending breakdown on settle-up']}
+];
+var APP_VER=CHANGELOG[0].v;
 function catIcon(c){return CATICON[c]||'📦';}
 var TGRADS=['linear-gradient(135deg,#5B8DEF,#8E63E6)','linear-gradient(135deg,#F0975B,#E8577B)','linear-gradient(135deg,#19B47E,#0E8F63)','linear-gradient(135deg,#6D5BEF,#B063E6)','linear-gradient(135deg,#EF8F5B,#E85B5B)','linear-gradient(135deg,#2BB1C9,#3C7FE8)','linear-gradient(135deg,#E8A13A,#E85B8E)','linear-gradient(135deg,#4FB596,#2B9CC9)'];
 function tripGradient(key){var s=String(key||''),n=0;for(var i=0;i<s.length;i++)n=(n*31+s.charCodeAt(i))>>>0;return TGRADS[n%TGRADS.length];}
@@ -992,6 +1000,14 @@ function openTripTickets(){
   var tks=d.expenses.filter(function(e){return !e.deleted && e.ticket;});
   var head='<div class="top"><button class="back" id="bkt">‹ '+esc(d.trip.name)+'</button><h1 style="font-size:17px">Trip tickets</h1></div>';
   var body='';
+  if(tks.length){
+    var _tMs=new Date();_tMs.setHours(0,0,0,0);_tMs=_tMs.getTime();
+    var totalCost=tks.reduce(function(s,e){return s+(e.amount||0);},0);
+    var upCount=tks.filter(function(e){var t=Date.parse((e.ticket||{}).date);return isNaN(t)||t>=_tMs;}).length;
+    body+='<div class="card" style="padding:14px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">\
+      <div><div class="muted" style="font-size:12px">Upcoming journeys</div><div style="font-weight:800;font-size:22px">'+upCount+'</div></div>\
+      <div style="text-align:right"><div class="muted" style="font-size:12px">Total tickets cost</div><div style="font-weight:800;font-size:22px">'+money0(totalCost,cur)+'</div></div></div>';
+  }
   if(!d.trip.locked)body+='<button class="btn sm" id="addTk" style="margin-bottom:12px">➕ Add tickets</button>';
   function tkCard(e){
     var tk=e.ticket||{};
@@ -1407,14 +1423,21 @@ function renderAccount(){
     '<button class="btn sec sm" id="editProf" style="margin-top:10px">✏️ Edit profile</button>'+
     (u.isAdmin?'<div class="banner" style="margin-top:12px">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
-    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px" id="verLine">TripSplit<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
+    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px"><span id="verLine" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">TripSplit v'+esc(APP_VER)+'</span><div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
   shell('account',body,head);
   if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
   $('#logoutBtn').onclick=function(){if(confirm('Log out?'))logout();};
   if($('#editProf'))$('#editProf').onclick=openEditProfile;
   if($('#adminBtn'))$('#adminBtn').onclick=openAdmin;
-  call('api_version').then(function(v){if($('#verLine'))$('#verLine').innerHTML=esc(v.name+' v'+v.version)+'<div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div>';});
+  if($('#verLine'))$('#verLine').onclick=openChangelog;
+}
+function openChangelog(){
+  var html='<p class="muted" style="margin-top:0">What\'s new in TripSplit, newest first.</p>';
+  CHANGELOG.forEach(function(c){
+    html+='<div class="card" style="padding:14px 16px;margin-bottom:10px"><div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:16px">v'+esc(c.v)+'</b><span class="muted" style="font-size:12px">'+esc(c.d)+'</span></div><ul style="margin:8px 0 0;padding-left:18px">'+c.notes.map(function(n){return '<li style="margin:4px 0;font-size:14px">'+esc(n)+'</li>';}).join('')+'</ul></div>';
+  });
+  sheetModal('Version history',html);
 }
 function openEditProfile(){
   var u=S.user||{};

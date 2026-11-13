@@ -449,6 +449,16 @@ function api_restoreExpense(p){
   logAct_(e.tripId,me,'restore','Restored "'+e.description+'"');
   backup_(); return getTripData_(e.tripId,me);
 }
+// Admin-only: permanently remove an already-deleted expense from the sheet.
+function api_purgeExpense(p){
+  var me=userByToken_(p.token); if(!isAdmin_(me)) throw 'Admins only.';
+  var e=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId;})[0]; if(!e) throw 'Expense not found.';
+  var trip=getTrip_(e.tripId); requireUnlocked_(trip);
+  if(String(e.deleted)==='' ) throw 'Delete it first, then remove permanently.';
+  deleteWhere_('Expenses','expenseId',e.expenseId);
+  logAct_(e.tripId,me,'purge','Permanently removed "'+e.description+'"');
+  backup_(); return getTripData_(e.tripId,me);
+}
 function requireInExpense_(e,me){
   if(isAdmin_(me)) return;
   var split={}; try{ split=JSON.parse(e.splitJSON||'{}'); }catch(x){}

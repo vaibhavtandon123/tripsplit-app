@@ -851,12 +851,18 @@ function openExpenseDetail(e){
     '<div class="muted" style="margin:12px 2px">'+meta+'</div>';
   if(e.deleted&&canEdit)html+='<button class="btn sm" id="restoreBtn">Restore expense</button>';
   else if(canEdit&&!d.trip.locked)html+='<button class="btn sm" id="editBtn">Edit expense</button>';
+  if(e.deleted&&d.trip.isAdmin)html+='<button class="btn danger sm" id="purgeBtn" style="margin-top:10px">🗑️ Delete permanently (admin)</button>';
   else if(d.trip.locked)html+='<div class="lockbanner">Trip is locked.</div>';
   else html+='<div class="banner">Only people in this expense can edit it.</div>';
   sheetModal('Expense',html,function(){
     if(e.receiptId&&$('#rcpt'))$('#rcpt').src='/img?id='+encodeURIComponent(e.receiptId);
     if($('#editBtn'))$('#editBtn').onclick=function(){closeModal();openAddExpense(e);};
     if($('#restoreBtn'))$('#restoreBtn').onclick=function(){loading(true);call('api_restoreExpense',{token:S.token,expenseId:e.expenseId}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Restored');}).catch(function(er){loading(false);toast(er);});};
+    if($('#purgeBtn'))$('#purgeBtn').onclick=function(){if(!confirm('Permanently remove this expense? This cannot be undone.'))return;
+      var le=S.data.expenses.filter(function(x){return x.expenseId===e.expenseId;})[0];
+      if(le){S.data.expenses=S.data.expenses.filter(function(x){return x.expenseId!==e.expenseId;});cacheSet('tet_trip_'+S.trip.tripId,S.data);}
+      closeModal();renderDashboard();toast('Removed permanently');
+      bgCall('api_purgeExpense',{token:S.token,expenseId:e.expenseId});};
   });
 }
 function shareOf(e){

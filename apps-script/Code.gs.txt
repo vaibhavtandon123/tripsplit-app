@@ -19,7 +19,7 @@ var SUB_DB='1. Database', SUB_RECEIPTS='2. Receipts', SUB_REPORTS='3. Reports',
     SUB_PHOTOS='4. Profile Photos', SUB_UPDATES='5. App Updates', SUB_BACKUP='6. Backup';
 var SS_NAME='Trip Expense Tracker — Database';
 var TOKEN_DAYS=30;
-var DEFAULT_CATS=['Food','Travel','Stay','Shopping','Tickets','Fuel','Other'];
+var DEFAULT_CATS=['Food','Travel','Stay','Shopping','Entry tickets','Fuel','Other'];
 
 /* ============================================================
  *  WEB ENTRY
@@ -534,7 +534,7 @@ function api_addTicketExpenses(p){
     if(total<=0 && tk.fare){ total=Number(tk.fare)||0; }
     var id='e-'+Utilities.getUuid().slice(0,8);
     appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:tk.description||((tk.mode||'Travel')+' ticket'+(tk.route?' — '+tk.route:'')),
-      category:'Tickets',amount:total,currency:trip.currency,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
+      category:'Travel',amount:total,currency:trip.currency,paidBy:tk.payerId||'',splitType:'custom',splitJSON:JSON.stringify(split),
       receiptId:tk.fileId||'',addedBy:me.userId,addedAt:now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
       payersJSON:JSON.stringify(tk.payerId?(function(){var o={};o[tk.payerId]=total;return o;})():{}),
       note:tk.note||'',spentOn:(tk.date||now_().slice(0,10)),
@@ -578,8 +578,31 @@ function api_recordPayment(p){
  * ========================================================== */
 function api_tripData(p){ return getTripData_(p.tripId,userByToken_(p.token)); }
 
+// One-time (idempotent) migration: old "Tickets" category → train/flight tickets become "Travel",
+// everything else (entry tickets) becomes "Entry tickets". Also fixes the trip's category list.
+function migrateTripCats_(tripId){
+  var sh=sheet_('Expenses'), idx=headerIdx_(sh), last=sh.getLastRow();
+  if(last>=2){
+    var width=sh.getLastColumn(), rng=sh.getRange(2,1,last-1,width), vals=rng.getValues();
+    var ci=idx['category'], ti=idx['tripId'], tj=idx['ticketJSON'], changed=false;
+    for(var r=0;r<vals.length;r++){
+      if(String(vals[r][ti])!==String(tripId)) continue;
+      if(String(vals[r][ci])==='Tickets'){
+        var hasTk=vals[r][tj]&&String(vals[r][tj]).length>2;
+        vals[r][ci]=hasTk?'Travel':'Entry tickets'; changed=true;
+      }
+    }
+    if(changed) rng.setValues(vals);
+  }
+  var trip=getTrip_(tripId), cats=[]; try{cats=JSON.parse(trip.cats||'[]');}catch(x){cats=[];}
+  var ncats=[],seen={},mutated=false;
+  cats.forEach(function(c){ var nc=(c==='Tickets')?'Entry tickets':c; if(nc!==c)mutated=true; if(!seen[nc]){seen[nc]=1;ncats.push(nc);} });
+  if(ncats.indexOf('Entry tickets')<0){ ncats.push('Entry tickets'); mutated=true; }
+  if(mutated) updateWhere_('Trips','tripId',tripId,{cats:JSON.stringify(ncats)});
+}
 function getTripData_(tripId,me){
   var trip=getTrip_(tripId);
+  try{ migrateTripCats_(tripId); trip=getTrip_(tripId); }catch(x){}
   var members=readAll_('Members').filter(function(m){return m.tripId===tripId;});
   var usersById={}; readAll_('Users').forEach(function(u){ usersById[u.userId]=u; });
   var mem=members.map(function(m){ var u=m.userId?usersById[m.userId]:null;

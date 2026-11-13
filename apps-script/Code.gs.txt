@@ -64,7 +64,7 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='8'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','8'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='9'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','9'); } }
   return ss;
 }
 
@@ -72,8 +72,8 @@ var SCHEMA={
   Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin'],
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel','coverPreset'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
-  Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON'],
-  Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt'],
+  Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON','clientId'],
+  Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt','clientId'],
   Activity:['id','tripId','actorId','actorName','action','detail','at']
 };
 
@@ -408,6 +408,8 @@ function normalizePayers_(p,amount){
 function api_addExpense(p){
   var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
   if(!isMember_(trip.tripId,me.userId) && !isAdmin_(me)) throw 'Join this trip first.';
+  // Idempotency: if this clientId was already added to the trip, don't create a duplicate.
+  if(p.clientId){ var dup=readAll_('Expenses').filter(function(x){return x.tripId===trip.tripId && String(x.clientId)===String(p.clientId);})[0]; if(dup) return getTripData_(trip.tripId,me); }
   var id='e-'+Utilities.getUuid().slice(0,8);
   var receiptId=p.receipt?saveReceipt_(p.receipt,trip.name,id):'';
   var amount=Number(p.amount)||0;
@@ -415,7 +417,7 @@ function api_addExpense(p){
     amount:amount,currency:trip.currency,paidBy:p.paidBy||'',splitType:p.splitType||'equal',splitJSON:JSON.stringify(p.split||{}),
     receiptId:receiptId,addedBy:me.userId,addedAt:p.clientTime||now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
     payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),spentOn:p.spentOn||(p.clientTime||now_()).slice(0,10),
-    ticketJSON:p.ticket?JSON.stringify(p.ticket):'',stayJSON:p.stay?JSON.stringify(p.stay):''});
+    ticketJSON:p.ticket?JSON.stringify(p.ticket):'',stayJSON:p.stay?JSON.stringify(p.stay):'',clientId:p.clientId||''});
   logAct_(trip.tripId,me,'add','Added "'+(p.description||'').trim()+'" ('+fmtMoney_(amount,trip.currency)+')');
   backup_(); return getTripData_(trip.tripId,me);
 }
@@ -567,8 +569,9 @@ function api_editTicket(p){
  * ========================================================== */
 function api_recordPayment(p){
   var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
+  if(p.clientId){ var pdup=readAll_('Payments').filter(function(x){return x.tripId===trip.tripId && String(x.clientId)===String(p.clientId);})[0]; if(pdup) return getTripData_(trip.tripId,me); }
   appendRow_('Payments',{paymentId:'p-'+Utilities.getUuid().slice(0,8),tripId:trip.tripId,fromId:p.fromId,toId:p.toId,
-    amount:Number(p.amount)||0,method:p.method||'cash',recordedBy:me.userId,recordedAt:now_()});
+    amount:Number(p.amount)||0,method:p.method||'cash',recordedBy:me.userId,recordedAt:now_(),clientId:p.clientId||''});
   logAct_(trip.tripId,me,'payment','Recorded payment '+fmtMoney_(p.amount,trip.currency));
   backup_(); return getTripData_(trip.tripId,me);
 }

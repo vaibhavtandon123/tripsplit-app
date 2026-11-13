@@ -295,10 +295,18 @@ function applyTheme(){var m=localStorage.getItem('tet_theme')||'light';if(m==='a
 applyTheme();
 
 /* offline queue (adds) */
+function cid(){return 'cid-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
 function queueGet(){try{return JSON.parse(localStorage.getItem('tet_queue')||'[]');}catch(e){return[];}}
-function queueSet(q){localStorage.setItem('tet_queue',JSON.stringify(q));}
-function queueAdd(item){var q=queueGet();q.push(item);queueSet(q);}
-async function flushQueue(){var q=queueGet();if(!q.length||!navigator.onLine)return;var rest=[];for(var i=0;i<q.length;i++){try{await call('api_addExpense',q[i]);}catch(e){rest.push(q[i]);}}queueSet(rest);if(q.length&&!rest.length)toast('Synced '+q.length+' offline item'+(q.length>1?'s':''));}
+function queueSet(q){try{localStorage.setItem('tet_queue',JSON.stringify(q));}catch(e){}}
+function queueAdd(fn,arg){var q=queueGet();q.push({fn:fn,arg:arg});queueSet(q);}
+var _flushing=false;
+async function flushQueue(){if(_flushing)return;var q=queueGet();if(!q.length||!navigator.onLine)return;_flushing=true;var rest=[],ok=0;
+  for(var i=0;i<q.length;i++){var it=q[i];var fn=it&&it.fn?it.fn:'api_addExpense';var arg=it&&it.fn?it.arg:it;
+    try{await call(fn,arg);ok++;}catch(e){if(e instanceof TypeError||!navigator.onLine)rest.push(it);/* network: retry later. server-rejected: drop. */}}
+  queueSet(rest);_flushing=false;
+  if(ok){if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);if(!rest.length)toast('Synced '+ok+' change'+(ok>1?'s':''));}}
+// Fire a mutating call in the background (non-blocking). On a lost connection, queue it to sync later (idempotent on the server).
+function bgCall(fn,arg){return call(fn,arg).then(function(d){if(d&&d.trip){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&!(($('#modal')||{}).innerHTML))renderDashboard();}}).catch(function(e){if(e instanceof TypeError||!navigator.onLine){queueAdd(fn,arg);toast('Saved — will sync shortly');}else{toast(String(e));if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);}});}
 window.addEventListener('online',function(){$('#offline').classList.add('hidden');flushQueue().then(function(){if(S.trip)refreshTrip(S.trip.tripId);});});
 window.addEventListener('offline',function(){$('#offline').classList.remove('hidden');});
 if(!navigator.onLine)$('#offline').classList.remove('hidden');
@@ -408,7 +416,7 @@ function enablePull(scr){
   scr.addEventListener('touchend',function(){ if(!pulling)return;pulling=false;ind.style.transition='transform .15s'; if(dy>70){busy=true;ind.style.transform='translateY(12px)';refreshCurrent(function(){busy=false;ind.style.transform='translateY(-44px)';});}else{ind.style.transform='translateY(-44px)';} dy=0; });
 }
 var _lastFg=0;
-function onForeground(){ if(document.hidden||!S.token)return; var n=Date.now(); if(n-_lastFg<2500)return; _lastFg=n; refreshCurrent(); }
+function onForeground(){ if(document.hidden||!S.token)return; var n=Date.now(); if(n-_lastFg<2500)return; _lastFg=n; flushQueue(); refreshCurrent(); }
 document.addEventListener('visibilitychange',onForeground);
 window.addEventListener('focus',onForeground);
 window.addEventListener('pageshow',onForeground);
@@ -765,7 +773,11 @@ function openAddExpense(existing){
     renderPayers();
 
     $('#saveExp').onclick=function(){saveExpense(ex,state,pstate,members,cur);};
-    if(ex&&$('#delExp'))$('#delExp').onclick=function(){if(!confirm('Delete this expense? Everyone in it will see it crossed out.'))return;loading(true);call('api_deleteExpense',{token:S.token,expenseId:ex.expenseId}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Deleted');}).catch(function(e){loading(false);toast(e);});};
+    if(ex&&$('#delExp'))$('#delExp').onclick=function(){if(!confirm('Delete this expense? Everyone in it will see it crossed out.'))return;
+      var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
+      if(le){le.deleted=true;le.deletedBy=S.user.userId;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
+      closeModal();renderDashboard();toast('Deleted');
+      bgCall('api_deleteExpense',{token:S.token,expenseId:ex.expenseId});};
   });
 }
 function fixRound(split,chosen,amt){var sum=0;chosen.forEach(function(m){sum+=split[m.memberId];});var diff=Math.round((amt-sum)*100)/100;if(diff&&chosen.length)split[chosen[0].memberId]=Math.round((split[chosen[0].memberId]+diff)*100)/100;}
@@ -794,15 +806,21 @@ function saveExpense(ex,state,pstate,members,cur){
   var sp=buildSplit(state,members,amt);if(sp===null)return toast('Pick at least one person');if(typeof sp==='string')return toast(sp);
   var payers=buildPayers(pstate,members,amt,singlePayer);if(typeof payers==='string')return toast(payers);
   var stay=null;if(cat==='Stay'){var ci=$('#eCheckIn')&&$('#eCheckIn').value,co=$('#eCheckOut')&&$('#eCheckOut').value;if(ci&&co){var nn=Math.round((new Date(co)-new Date(ci))/86400000);if(nn<=0)return toast('Check-out should be after check-in');stay={checkIn:ci,checkOut:co,nights:nn};}}
-  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:sp.type,split:sp.split,payers:payers,note:note,spentOn:spentOn,stay:stay,clientTime:new Date().toISOString()};
+  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:sp.type,split:sp.split,payers:payers,note:note,spentOn:spentOn,stay:stay,clientTime:new Date().toISOString(),clientId:cid()};
   function send(receipt){
     payload.receipt=receipt||'';
-    if(ex){payload.expenseId=ex.expenseId;loading(true);call('api_editExpense',payload).then(function(d){loading(false);closeModal();setData(d);renderDashboard();toast('Saved');}).catch(function(e){loading(false);toast(e);});}
+    if(ex){
+      payload.expenseId=ex.expenseId;
+      var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
+      if(le){le.description=desc;le.category=cat;le.amount=amt;le.splitType=sp.type;le.split=sp.split;le.payers=payers;le.note=note;le.spentOn=spentOn;le.stay=stay;le.editedBy=S.user.userId;le.editedAt=payload.clientTime;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
+      closeModal();renderDashboard();toast('Saved');
+      bgCall('api_editExpense',payload);
+    }
     else{
-      if(!navigator.onLine||!receipt&&false){}
-      if(!navigator.onLine){queueAdd(payload);closeModal();optimisticAdd(payload);toast('Saved offline — will sync');return;}
-      closeModal();optimisticAdd(payload);toast('Added');
-      call('api_addExpense',payload).then(function(d){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&!$('#modal').innerHTML)renderDashboard();}).catch(function(e){queueAdd(payload);toast('Saving… will sync shortly');});
+      closeModal();optimisticAdd(payload);
+      if(!navigator.onLine){queueAdd('api_addExpense',payload);toast('Saved offline — will sync');return;}
+      toast('Added');
+      bgCall('api_addExpense',payload);
     }
   }
   var f=$('#eReceipt').files[0];if(f)fileToResized(f,1200).then(send);else send('');
@@ -910,7 +928,7 @@ function openSettle(){
       arr.forEach(function(s,i){
         var upi=box.querySelector('[data-upi="'+i+'"]'),paid=box.querySelector('[data-paid="'+i+'"]');
         if(upi)upi.onclick=function(){window.location.href='upi://pay?pa=&pn='+encodeURIComponent(s.toName)+'&am='+s.amount+'&cu=INR&tn='+encodeURIComponent('Trip '+d.trip.name);setTimeout(function(){toast('If no UPI app opened, pay manually then Mark paid');},1200);};
-        if(paid)paid.onclick=function(){loading(true);call('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi'}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Payment recorded');}).catch(function(e){loading(false);toast(e);});};
+        if(paid)paid.onclick=function(){if(paid.dataset.busy)return;paid.dataset.busy='1';paid.style.opacity='.6';closeModal();toast('Payment recorded');bgCall('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi',clientId:cid()});};
       });
     }
     wireRows(list);

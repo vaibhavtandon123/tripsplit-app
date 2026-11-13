@@ -605,24 +605,23 @@ function buildDonut(byCat,total,cur){
   var pal=['#4FB596','#F2672E','#8656CD','#3A8DDE','#E8B33A','#E0603A','#2FAE7F','#9AA0A6'];
   var items=Object.keys(byCat).map(function(k){return {k:k,v:byCat[k]};}).sort(function(a,b){return b.v-a.v;});
   if(!items.length||total<=0)return '<div class="card" style="text-align:center;color:var(--sub);padding:24px 16px">No spending yet</div>';
-  var cx=86,cy=86,r=80,ir=47,a=-Math.PI/2;
-  function pt(X,Y,rr,ang){return (X+rr*Math.cos(ang))+' '+(Y+rr*Math.sin(ang));}
-  var paths='',labels='';
-  items.forEach(function(it,i){var frac=it.v/total,a1=a+frac*2*Math.PI,g=0.03,s=a+g/2,e=a1-g/2,large=(e-s)>Math.PI?1:0,col=pal[i%pal.length];
-    paths+='<path d="M '+pt(cx,cy,r,s)+' A '+r+' '+r+' 0 '+large+' 1 '+pt(cx,cy,r,e)+' L '+pt(cx,cy,ir,e)+' A '+ir+' '+ir+' 0 '+large+' 0 '+pt(cx,cy,ir,s)+' Z" fill="'+col+'"/>';
-    var mid=(s+e)/2,lr=(r+ir)/2; if(frac>0.07)labels+='<text x="'+(cx+lr*Math.cos(mid))+'" y="'+(cy+lr*Math.sin(mid)+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+Math.round(frac*100)+'%</text>';
-    a=a1;});
-  var svg='<svg viewBox="0 0 172 172" style="display:block;width:clamp(96px,32vw,150px);height:auto">'+paths+'<circle cx="86" cy="86" r="45" fill="var(--card)"/><text x="86" y="82" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="86" y="99" text-anchor="middle" font-size="9" letter-spacing="1.2" fill="var(--sub)">TOTAL</text>'+labels+'</svg>';
+  var cx=86,cy=86,r=78,ir=63,a=-Math.PI/2;
+  function pt(rr,ang){return (cx+rr*Math.cos(ang))+' '+(cy+rr*Math.sin(ang));}
+  var paths='';
+  items.forEach(function(it,i){var f=it.v/total,a1=a+f*2*Math.PI,g=0.025,s=a+g/2,e=a1-g/2,lg=(e-s)>Math.PI?1:0,col=pal[i%pal.length];
+    paths+='<path d="M '+pt(r,s)+' A '+r+' '+r+' 0 '+lg+' 1 '+pt(r,e)+' L '+pt(ir,e)+' A '+ir+' '+ir+' 0 '+lg+' 0 '+pt(ir,s)+' Z" fill="'+col+'"/>'; a=a1;});
+  var svg='<svg viewBox="0 0 172 172" style="display:block;width:clamp(82px,27vw,136px);height:auto">'+paths+'<circle cx="86" cy="86" r="'+(ir-1)+'" fill="var(--card)"/><text x="86" y="82" text-anchor="middle" font-size="17" font-weight="800" fill="var(--ink)">'+money0(total,cur)+'</text><text x="86" y="99" text-anchor="middle" font-size="9" letter-spacing="1.2" fill="var(--sub)">TOTAL</text></svg>';
   var leg='<div style="flex:1;min-width:0">';
-  items.forEach(function(it,i){var col=pal[i%pal.length];
-    leg+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:11px">\
-        <span class="catico" style="width:26px;height:26px;border-radius:8px;font-size:13px;flex:0 0 auto;background:'+col+';box-shadow:0 2px 6px '+col+'55">'+catIcon(it.k)+'</span>\
-        <span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13px">'+esc(it.k)+'</span>\
-        <b style="flex:0 0 auto;font-size:13px;white-space:nowrap">'+money0(it.v,cur)+'</b>\
+  items.forEach(function(it,i){var col=pal[i%pal.length],pct=Math.round(it.v/total*100);
+    leg+='<div style="display:flex;align-items:center;gap:9px;padding:3px 0">\
+        <span style="width:9px;height:9px;border-radius:3px;flex:0 0 auto;background:'+col+'"></span>\
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:14px">'+esc(it.k)+'</span>\
+        <b style="flex:0 0 auto;font-size:14px;white-space:nowrap">'+money0(it.v,cur)+'</b>\
+        <span style="flex:0 0 auto;width:32px;text-align:right;color:var(--sub);font-size:12px;font-weight:600">'+pct+'%</span>\
     </div>';
   });
   leg+='</div>';
-  return '<div class="card" style="padding:16px 14px;display:flex;align-items:center;gap:10px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
+  return '<div class="card" style="padding:16px 14px;display:flex;align-items:center;gap:12px"><div style="flex:0 0 auto">'+svg+'</div>'+leg+'</div>';
 }
 function memName(id){var m=(S.data.members.filter(function(x){return x.memberId===id;})[0]||{});return m.name||'?';}
 function nameOfUser(userId){var d=S.data;if(!d)return '';var m=d.members.filter(function(x){return x.userId===userId;})[0];if(m)return m.name;if(S.user&&S.user.userId===userId)return S.user.fullName;return '';}

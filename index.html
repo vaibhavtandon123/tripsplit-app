@@ -890,7 +890,7 @@ function openSettle(){
   if(paidList.length){
     html+='<h2 class="sec" style="margin-top:20px">Jeb se diya (paid out of pocket)</h2>';
     paidList.forEach(function(s){
-      html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center"><b>'+esc(s.name)+'</b><span style="margin-left:auto;font-weight:700">'+money(s.paid,cur)+'</span></div>';
+      html+='<div class="card jebrow" data-jeb="'+esc(s.memberId)+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;cursor:pointer"><b>'+esc(s.name)+'</b><span style="margin-left:auto;font-weight:700">'+money(s.paid,cur)+'</span><span style="color:var(--sub);margin-left:8px">›</span></div>';
     });
   }
   html+='<button class="btn out sm" id="shareFromSettle" style="margin-top:14px">📤 Send everyone the summary</button>';
@@ -912,6 +912,36 @@ function openSettle(){
       setTimeout(function(){ box.innerHTML=settleRowsHtml(nl); wireRows(nl); box.style.opacity='1'; },170);
     };
     $('#shareFromSettle').onclick=function(){closeModal();openShare();};
+    Array.prototype.forEach.call(document.querySelectorAll('.jebrow'),function(r){
+      r.onclick=function(){openPaidDetail(r.getAttribute('data-jeb'));};
+    });
+  });
+}
+
+function openPaidDetail(mid){
+  var d=S.data,cur=d.trip.currency;
+  var mem=(d.memberStats||[]).filter(function(s){return s.memberId===mid;})[0];
+  var name=mem?mem.name:'';
+  var rows=[];var total=0;
+  (d.expenses||[]).forEach(function(e){
+    if(e.deleted)return;
+    var amt=0;
+    if(e.payers&&e.payers[mid]!=null)amt=Number(e.payers[mid])||0;
+    else if(e.paidBy===mid)amt=Number(e.amount)||0;
+    if(amt>0.5){rows.push({e:e,amt:amt});total+=amt;}
+  });
+  rows.sort(function(a,b){return b.amt-a.amt;});
+  var html='';
+  if(!rows.length){html='<div class="muted" style="padding:20px 0;text-align:center">No payments recorded</div>';}
+  else{
+    rows.forEach(function(r){
+      html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">'+catIcon(r.e.category)+'</span><div style="flex:1;min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.e.description||r.e.category)+'</div><div class="muted" style="font-size:12px">'+sdate(r.e.spentOn)+'</div></div><span style="font-weight:700">'+money(r.amt,cur)+'</span></div>';
+    });
+    html+='<div class="card" style="padding:12px 16px;margin-top:4px;display:flex;align-items:center;background:var(--mint);color:#fff"><b>Total diya</b><span style="margin-left:auto;font-weight:800">'+money(total,cur)+'</span></div>';
+  }
+  html+='<button class="btn out sm" id="backToSettle" style="margin-top:14px">‹ Back to settle up</button>';
+  sheetModal(name+' ne kya-kya diya',html,function(){
+    $('#backToSettle').onclick=function(){openSettle();};
   });
 }
 

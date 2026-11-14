@@ -620,9 +620,10 @@ function renderDashboard(updating){
     <div class="htop"><button class="hback" id="bk">‹ Trips</button><button class="hmenu" id="tripMenu">⋯</button></div>\
     <h1>'+esc(t.name)+'</h1><div class="hsub">'+d.members.length+' '+(d.members.length==1?'person':'people')+'</div></div>';
   var owed=myBal>=0;
-  var balCard='<div class="balc2">\
+  var balBg=owed?'':'background:linear-gradient(145deg,#FF7D6E 0%,#EC5540 68%,#D83C27 100%);box-shadow:0 18px 40px rgba(216,60,39,.34)';
+  var balCard='<div class="balc2" style="'+balBg+'">\
     <div class="balc2-top">'+(owed?'You are owed':'You owe')+'</div>\
-    <div class="balc2-v" style="color:'+(owed?'#C9FBE8':'#FF6B6B')+'">'+(owed?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
+    <div class="balc2-v" style="color:'+(owed?'#C9FBE8':'#FFFFFF')+'">'+(owed?'+':'−')+money0(Math.abs(myBal),cur)+'</div>\
     '+(d.settle.length?'<button class="balc2-cta" id="settleBtn">Settle up '+d.settle.length+' '+(d.settle.length==1?'payment':'payments')+' ›</button>':'<div class="balc2-ok">✓ Everyone is settled up</div>')+'\
     <div class="balc2-chips">\
       <div class="bch"><div class="bl">Total</div><div class="bv">'+money0(d.total,cur)+'</div></div>\

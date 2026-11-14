@@ -319,7 +319,7 @@ async function flushQueue(){if(_flushing)return;var q=queueGet();if(!q.length||!
   queueSet(rest);_flushing=false;
   if(ok){if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);if(!rest.length)toast('Synced '+ok+' change'+(ok>1?'s':''));}}
 // Fire a mutating call in the background (non-blocking). On a lost connection, queue it to sync later (idempotent on the server).
-function bgCall(fn,arg){return call(fn,arg).then(function(d){if(d&&d.trip){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&!(($('#modal')||{}).innerHTML))reRenderDash();}}).catch(function(e){if(e instanceof TypeError||!navigator.onLine){queueAdd(fn,arg);toast('Saved — will sync shortly');}else{toast(String(e));if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);}});}
+function bgCall(fn,arg){return call(fn,arg).then(function(d){if(d&&d.trip){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&document.querySelector('.balc2')&&!(($('#modal')||{}).innerHTML))reRenderDash();}}).catch(function(e){if(e instanceof TypeError||!navigator.onLine){queueAdd(fn,arg);toast('Saved — will sync shortly');}else{toast(String(e));if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);}});}
 window.addEventListener('online',function(){$('#offline').classList.add('hidden');flushQueue().then(function(){if(S.trip)refreshTrip(S.trip.tripId);});});
 window.addEventListener('offline',function(){$('#offline').classList.remove('hidden');});
 if(!navigator.onLine)$('#offline').classList.remove('hidden');
@@ -585,7 +585,7 @@ function openTrip(id){
   }
 }
 function refreshTrip(id){
-  call('api_tripData',{token:S.token,tripId:id}).then(function(d){if(!d||!d.trip)return;cacheSet('tet_trip_'+id,d);if(S.trip&&S.trip.tripId===id){S.trip=d.trip;S.data=d;if(S.tab==='trips'&&!$('#modal').innerHTML)reRenderDash();}}).catch(function(){});
+  call('api_tripData',{token:S.token,tripId:id}).then(function(d){if(!d||!d.trip)return;cacheSet('tet_trip_'+id,d);if(S.trip&&S.trip.tripId===id){S.trip=d.trip;S.data=d;if(document.querySelector('.balc2')&&!$('#modal').innerHTML)reRenderDash();}}).catch(function(){});
 }
 function pendingInfo(){
   var d=S.data||{}, me=d.me||{}, myMid=me.memberId, admin=(d.trip||{}).isAdmin;

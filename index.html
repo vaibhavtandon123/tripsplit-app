@@ -916,10 +916,10 @@ var _allSort='date';
 function openAllExpenses(){
   var d=S.data;
   var head='<div class="top"><button class="back" id="bk2">‹ '+esc(d.trip.name)+'</button><h1 style="font-size:17px">All expenses</h1></div>';
-  var sortSel='<div class="field" style="margin-bottom:8px"><label>Sort by</label><select id="allSort">\
-    <option value="date">Date (newest first)</option>\
-    <option value="amt_hi">Amount: high → low</option>\
-    <option value="amt_lo">Amount: low → high</option>\
+  var sortSel='<div style="display:flex;align-items:center;justify-content:flex-end;gap:7px;margin:-2px 0 6px"><span class="muted" style="font-size:12px">Sort</span><select id="allSort" style="width:auto;padding:6px 26px 6px 10px;font-size:13px;border-radius:9px">\
+    <option value="date">Date (newest)</option>\
+    <option value="amt_hi">Amount ↓</option>\
+    <option value="amt_lo">Amount ↑</option>\
     <option value="cat">Category</option>\
     <option value="payer">Paid by</option></select></div>';
   shell('trips',sortSel+'<div id="allList"></div>',head);$('#bk2').onclick=renderDashboard;

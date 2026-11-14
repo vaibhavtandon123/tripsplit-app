@@ -64,12 +64,22 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='11'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','11'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='12'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','12'); } try{ purgeDueDeletions_(); }catch(e){} }
   return ss;
+}
+// Permanently remove accounts whose scheduled deletion time has passed (24h grace).
+function purgeDueDeletions_(){
+  var now=new Date().getTime();
+  readAll_('Users').forEach(function(u){
+    if(!u.deleteAt) return;
+    var t=Date.parse(u.deleteAt); if(isNaN(t)||t>now) return;
+    readAll_('Members').filter(function(m){return m.userId===u.userId;}).forEach(function(m){ updateWhere_('Members','memberId',m.memberId,{userId:''}); });
+    deleteWhere_('Users','userId',u.userId);
+  });
 }
 
 var SCHEMA={
-  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin'],
+  Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin','deleteAt'],
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel','coverPreset'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
   Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','spentTime','ticketJSON','stayJSON','clientId'],
@@ -195,7 +205,7 @@ function userByToken_(token){
   }
   throw 'Please log in again.';
 }
-function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,dob:x.dob||'',isAdmin:isAdmin_(x)}; }
+function publicUser_(x){ return {userId:x.userId,fullName:x.fullName,username:x.username,email:x.email,mobile:x.mobile,photoId:x.photoId,dob:x.dob||'',isAdmin:isAdmin_(x),deleteAt:x.deleteAt||''}; }
 function api_updateProfile(p){
   var me=userByToken_(p.token);
   var patch={};
@@ -968,14 +978,17 @@ function api_contactMessage(p){
   if(to){ try{ MailApp.sendEmail(to, subject, body); }catch(e){ throw 'Could not send right now. Please try again.'; } }
   return {ok:true};
 }
-function api_deleteAccount(p){
-  var me=userByToken_(p.token);
-  if(!me) throw 'Not signed in.';
-  var uid=me.userId;
-  // Detach the user from trips but keep the display name so friends' settle-up stays correct.
-  readAll_('Members').filter(function(m){return m.userId===uid;}).forEach(function(m){ updateWhere_('Members','memberId',m.memberId,{userId:''}); });
-  // Erase the login / personal-data row.
-  deleteWhere_('Users','userId',uid);
+// Schedule account deletion 24h out, after verifying the password. Cancelable within 24h.
+function api_requestAccountDeletion(p){
+  var me=userByToken_(p.token); if(!me) throw 'Not signed in.';
+  if(hash_(String(p.password||''),me.salt)!==me.passHash) throw 'Wrong password.';
+  var when=new Date(new Date().getTime()+24*60*60*1000).toISOString();
+  updateWhere_('Users','userId',me.userId,{deleteAt:when});
+  return {ok:true,deleteAt:when};
+}
+function api_cancelAccountDeletion(p){
+  var me=userByToken_(p.token); if(!me) throw 'Not signed in.';
+  updateWhere_('Users','userId',me.userId,{deleteAt:''});
   return {ok:true};
 }
 function api_version(){ return {version:APP_VERSION,name:APP_NAME}; }

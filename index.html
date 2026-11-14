@@ -80,6 +80,14 @@ input[type=date]{-webkit-appearance:none;appearance:none;min-height:48px;line-he
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--sub);font-size:11px;background:none;border:none;font-family:inherit;}
 .tab.active{color:var(--mint);}
 .tab svg{width:23px;height:23px;}
+.tab .navdp{width:25px;height:25px;border-radius:50%;background-size:cover;background-position:center;background-color:#E9ECEB;}
+.aclbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--sub);margin:24px 4px 2px;}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px;}
+.act{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border:none;background:none;font-family:inherit;}
+.act .aci{width:46px;height:46px;border-radius:50%;background:#EFF4F2;display:flex;align-items:center;justify-content:center;font-size:21px;}
+.act:active .aci{background:#DDE8E4;}
+.act .act-t{font-size:11.5px;font-weight:600;color:var(--sub);}
+.tab.active .navdp{box-shadow:0 0 0 2px var(--mint);}
 .fab{width:56px;height:56px;border-radius:50%;background:var(--mint);color:#fff;border:none;margin-top:-24px;box-shadow:0 4px 14px rgba(79,181,150,.5);font-size:30px;display:flex;align-items:center;justify-content:center;}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;}
@@ -454,11 +462,17 @@ function tabBar(active){
     friends:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.3"/></svg>',
     activity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>',
     account:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>'};
+  var inTrip=!!(S.trip&&S.trip.tripId);
+  var u=S.user||{};
+  if(u.photoId)ic.account='<span class="navdp" style="background-image:url(/img?id='+encodeURIComponent(u.photoId)+')"></span>';
   var bar=el('<div class="tabbar"></div>');
   function t(key,label){var b=el('<button class="tab'+(active===key?' active':'')+'">'+ic[key]+'<span>'+label+'</span></button>');b.onclick=function(){goTab(key);};return b;}
   bar.appendChild(t('trips','Trips'));bar.appendChild(t('friends','Friends'));
-  var fab=el('<button class="fab">＋</button>');fab.onclick=onFab;bar.appendChild(fab);
-  bar.appendChild(t('activity','Activity'));bar.appendChild(t('account','Account'));
+  if(inTrip){
+    var fab=el('<button class="fab">＋</button>');fab.onclick=onFab;bar.appendChild(fab);
+    bar.appendChild(t('activity','Activity'));
+  }
+  bar.appendChild(t('account','Account'));
   return bar;
 }
 function goTab(key){S.tab=key;if(key==='trips')renderTrips();else if(key==='friends')renderFriends();else if(key==='activity')renderActivityTab();else if(key==='account')renderAccount();}
@@ -481,8 +495,8 @@ function skelDashboard(){
 function renderTrips(){
   S.trip=null;S.data=null;S.tab='trips';
   var head='<div class="top"><h1>Your trips</h1><button class="newbtn" id="newTop">＋ New</button></div>';
-  var scr=shell('trips','<div id="triplist"></div>',head);
-  $('#newTop').onclick=openStart;
+  var scr=shell('trips',deletionBanner()+'<div id="triplist"></div>',head);
+  $('#newTop').onclick=openStart;wireDeletionBanner();
   var cached=cacheGet('tet_trips');if(cached&&cached.length)paintTrips(cached);else $('#triplist').innerHTML=skelTrips();
   call('api_myTrips',S.token).then(function(list){cacheSet('tet_trips',list);if(S.tab==='trips')paintTrips(list);}).catch(function(e){if(!cached)$('#triplist').innerHTML='<div class="center">'+esc(e)+'</div>';});
 }
@@ -630,11 +644,15 @@ function renderDashboard(updating){
   var catB=catBudgetHtml(d);
   var donut=buildDonut(d.byCategory,d.total,cur);
   var settleHtml='';
-  if(d.settle.length){settleHtml='<h2 class="sec">Settle up</h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div><button class="btn out sm" id="settleBtn2">Open settle up</button>';}
+  if(d.settle.length){settleHtml='<h2 class="sec" style="display:flex;justify-content:space-between;align-items:baseline">Settle up <a id="settleBtn2" style="color:var(--mint);font-size:13px;font-weight:700">Open ›</a></h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div>';}
   var body=hero+balCard+pendHtml+lock+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
     '<h2 class="sec" style="display:flex;justify-content:space-between">Recent expenses <a id="allExp" style="color:var(--mint);font-size:13px;font-weight:600">See all</a></h2><div id="expMini"></div>\
-    <div class="row2" style="margin-top:14px"><button class="btn sec sm" id="shareBtn">📤 Share</button><button class="btn sec sm" id="ticketBtn">🎟️ Tickets</button><button class="btn sec sm" id="addPpl">👥 People</button></div>\
-    <button class="btn sec sm" id="locBtn" style="margin-top:10px">📍 Locations map</button>';
+    <div class="aclbl">Manage</div><div class="acts">\
+      <button class="act" id="shareBtn"><span class="aci">📤</span><span class="act-t">Share</span></button>\
+      <button class="act" id="ticketBtn"><span class="aci">🎟️</span><span class="act-t">Tickets</span></button>\
+      <button class="act" id="addPpl"><span class="aci">👥</span><span class="act-t">People</span></button>\
+      <button class="act" id="locBtn"><span class="aci">📍</span><span class="act-t">Map</span></button>\
+    </div>';
   shell('trips',body,head);
   $('#bk').onclick=renderTrips;$('#tripMenu').onclick=openTripMenu;
   if($('#settleBtn'))$('#settleBtn').onclick=openSettle;
@@ -1492,9 +1510,9 @@ function renderAccount(){
     '<button class="btn sec sm" id="editProf" style="margin-top:10px">✏️ Edit profile</button>'+
     (u.isAdmin?'<div class="banner" style="margin-top:12px">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
-    '<h2 class="sec">Support &amp; privacy</h2><button class="btn sec sm" id="contactBtn">✉️ Contact us</button><button class="btn sec sm" id="privacyBtn" style="margin-top:8px">🔒 Privacy</button><button class="btn out sm" id="delAccBtn" style="margin-top:8px;color:var(--orange)">Delete my account &amp; data</button>'+
+    '<h2 class="sec">Support &amp; privacy</h2><button class="btn sec sm" id="contactBtn">✉️ Contact us</button><button class="btn sec sm" id="privacyBtn" style="margin-top:8px">🔒 Privacy</button>'+
     '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px"><span id="verLine" style="cursor:pointer">TripSplit v'+esc(APP_VER)+'</span><div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
-  shell('account',body,head);
+  shell('account',deletionBanner()+body,head);wireDeletionBanner();
   if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
   $('#logoutBtn').onclick=function(){if(confirm('Log out?'))logout();};
@@ -1503,7 +1521,6 @@ function renderAccount(){
   if($('#verLine'))$('#verLine').onclick=openChangelog;
   if($('#contactBtn'))$('#contactBtn').onclick=openContact;
   if($('#privacyBtn'))$('#privacyBtn').onclick=openPrivacy;
-  if($('#delAccBtn'))$('#delAccBtn').onclick=openDeleteAccount;
 }
 var CONTACT_CATS=['Request a feature','Report a bug','Feedback / suggestion','Account / data issue','Other'];
 function openContact(){
@@ -1526,19 +1543,27 @@ function openPrivacy(){
     <ul style="padding-left:18px;margin:6px 0 14px;font-size:14px;line-height:1.5"><li>Your name, username, email and phone (to identify you and let friends add you)</li><li>The trips, expenses and payments you add</li><li>Your location only when you tap “share location” (never in the background)</li></ul>\
     <p style="margin:0"><b>Why</b></p><p style="font-size:14px;margin:6px 0 14px">Only to run the app — split expenses and settle up within your trips. We don’t sell your data or use third-party trackers/analytics.</p>\
     <p style="margin:0"><b>Who can see it</b></p><p style="font-size:14px;margin:6px 0 14px">Only members of your trips, and the app admin. Passwords are stored encrypted (salted hash).</p>\
-    <p style="margin:0"><b>Your control</b></p><p style="font-size:14px;margin:6px 0 0">You can edit your profile anytime, or delete your account and data from the button in Account.</p></div>');
+    <p style="margin:0"><b>Your control</b></p><p style="font-size:14px;margin:6px 0 0">You can edit your profile anytime, or delete your account and all your personal data below.</p></div>\
+    <button class="btn out sm" id="delAccBtn" style="margin-top:14px;color:var(--orange)">Delete my account &amp; data</button>',
+    function(){ if($('#delAccBtn'))$('#delAccBtn').onclick=openDeleteAccount; });
 }
+function deletionPending(){var da=(S.user||{}).deleteAt;if(!da)return 0;var t=Date.parse(da);return (!isNaN(t)&&t>Date.now())?t:0;}
+function deletionBanner(){var t=deletionPending();if(!t)return '';var hrs=Math.max(1,Math.round((t-Date.now())/3600000));return '<div class="card" style="padding:12px 14px;margin-bottom:12px;border:1.5px solid var(--orange);background:#FFF3EE"><div style="font-size:13px;color:#B5461F;font-weight:600">⚠ Your account is scheduled for deletion in ~'+hrs+'h.</div><button class="btn out sm" id="cancelDel" style="margin-top:8px;color:var(--mint)">Cancel deletion</button></div>';}
+function wireDeletionBanner(){if($('#cancelDel'))$('#cancelDel').onclick=function(){call('api_cancelAccountDeletion',{token:S.token}).then(function(){if(S.user)S.user.deleteAt='';toast('Deletion cancelled');if(S.tab==='account')renderAccount();else renderTrips();}).catch(function(e){toast(String(e));});};}
 function openDeleteAccount(){
-  sheetModal('Delete my account & data','<div class="card" style="padding:16px"><p style="margin-top:0;font-size:14px;line-height:1.5">This permanently removes your profile — your name, username, email, phone and password — and signs you out.</p>\
-    <p style="font-size:14px;line-height:1.5">Expenses you already added in shared trips stay, so your friends’ settle-up stays correct, but they will no longer be linked to a login.</p>\
-    <p style="font-size:13px;color:var(--sub)">This cannot be undone.</p>\
-    <button class="btn out" id="delGo" style="color:var(--orange)">Delete my account</button></div>',
+  sheetModal('Delete my account & data','<div class="card" style="padding:16px"><p style="margin-top:0;font-size:14px;line-height:1.5">This removes your profile — name, username, email, phone and password — <b>24 hours</b> after you confirm. Expenses you added in shared trips stay so others’ settle-up stays correct.</p>\
+    <p style="font-size:13px;color:var(--sub)">You can cancel anytime within 24 hours by logging in.</p>\
+    <div class="field"><label>Your password</label><input id="delPw" type="password" placeholder="Enter password"></div>\
+    <div class="field"><label>Type DELETE to confirm</label><input id="delWord" autocapitalize="characters" placeholder="DELETE"></div>\
+    <button class="btn out" id="delGo" style="color:var(--orange)">Schedule deletion</button></div>',
     function(){
       $('#delGo').onclick=function(){
-        if(!confirm('Delete your account and personal data? This cannot be undone.'))return;
-        if(!confirm('Last check — really delete your account?'))return;
-        $('#delGo').disabled=true;$('#delGo').textContent='Deleting…';
-        call('api_deleteAccount',{token:S.token}).then(function(){toast('Account deleted');logout();}).catch(function(e){$('#delGo').disabled=false;$('#delGo').textContent='Delete my account';toast(String(e));});
+        var pw=($('#delPw').value||'');
+        if(!pw)return toast('Enter your password');
+        if(($('#delWord').value||'')!=='DELETE')return toast('Type DELETE (in capitals) to confirm');
+        if(!confirm('Schedule your account for deletion in 24 hours?'))return;
+        $('#delGo').disabled=true;$('#delGo').textContent='Please wait…';
+        call('api_requestAccountDeletion',{token:S.token,password:pw}).then(function(r){S.user.deleteAt=(r&&r.deleteAt)||'x';closeModal();toast('Account will be deleted in 24 hours. Login anytime to cancel.');if(S.tab==='account')renderAccount();}).catch(function(e){$('#delGo').disabled=false;$('#delGo').textContent='Schedule deletion';toast(String(e));});
       };
     });
 }

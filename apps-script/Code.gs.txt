@@ -923,6 +923,29 @@ function api_clearLocation(p){
 }
 function api_stations(p){ userByToken_(p.token); var raw=PropertiesService.getScriptProperties().getProperty('CUSTOM_STATIONS'); var arr=[]; try{arr=JSON.parse(raw||'[]');}catch(e){} return arr; }
 function api_addStation(p){ userByToken_(p.token); var name=String(p.name||'').trim().replace(/\s+/g,' '); if(name.length<2) return {ok:false}; var props=PropertiesService.getScriptProperties(); var arr=[]; try{arr=JSON.parse(props.getProperty('CUSTOM_STATIONS')||'[]');}catch(e){} var low=name.toLowerCase(); if(!arr.some(function(s){return String(s).toLowerCase()===low;})){ arr.push(name); if(arr.length>3000)arr=arr.slice(-3000); props.setProperty('CUSTOM_STATIONS',JSON.stringify(arr)); } return {ok:true,stations:arr}; }
+function api_contactMessage(p){
+  var me=userByToken_(p.token);
+  var cat=String(p.category||'Other').slice(0,60);
+  var text=String(p.text||'').slice(0,4000);
+  if(text.length<2) throw 'Message is empty.';
+  var to=''; try{to=Session.getEffectiveUser().getEmail();}catch(e){}
+  if(!to){ try{to=Session.getActiveUser().getEmail();}catch(e){} }
+  var who=me?(me.fullName+' (@'+me.username+', '+me.email+(me.mobile?', '+me.mobile:'')+')'):'Unknown user';
+  var subject='[TripSplit] '+cat;
+  var body='From: '+who+'\nTopic: '+cat+'\nWhen: '+now_()+'\n\n'+text;
+  if(to){ try{ MailApp.sendEmail(to, subject, body); }catch(e){ throw 'Could not send right now. Please try again.'; } }
+  return {ok:true};
+}
+function api_deleteAccount(p){
+  var me=userByToken_(p.token);
+  if(!me) throw 'Not signed in.';
+  var uid=me.userId;
+  // Detach the user from trips but keep the display name so friends' settle-up stays correct.
+  readAll_('Members').filter(function(m){return m.userId===uid;}).forEach(function(m){ updateWhere_('Members','memberId',m.memberId,{userId:''}); });
+  // Erase the login / personal-data row.
+  deleteWhere_('Users','userId',uid);
+  return {ok:true};
+}
 function api_version(){ return {version:APP_VERSION,name:APP_NAME}; }
 
 /* ---- one-time setup (run once from editor) ---- */

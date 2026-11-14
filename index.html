@@ -235,6 +235,7 @@ document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t
 var CATICON={Food:'🍽️',Travel:'🚕','Train ticket':'🚆','Flight ticket':'✈️',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 /* Changelog — newest first. New features bump major (x.0.0); fixes/small changes bump minor/patch. */
 var CHANGELOG=[
+  {v:'5.0.0',d:'2026-11-14',notes:['Contact us — send a feature request, bug report or feedback right from the app','Privacy page — exactly what is stored, why, and who can see it','Delete my account & data option','Settle-up now asks you to confirm twice before recording a payment']},
   {v:'4.0.0',d:'2026-11-13',notes:['Train & Flight tickets are now separate categories','Add ticket now asks Train or Flight — Flight has a full form; Train is manual with optional PDF attach','Tickets now live only in the Tickets tab (hidden from Recent & All expenses, still counted in totals)','People screen redesigned — tap a person for options (Pay under / Who pays / kid)','Admins can permanently delete a removed expense']},
   {v:'3.2.0',d:'2026-11-13',notes:['Instant, Splitwise-style updates with background sync','Settle-up now shows who paid out of pocket — tap a name to see each payment','Tickets page shows upcoming journeys and total tickets cost']},
   {v:'3.1.1',d:'2026-11-13',notes:['Fixed duplicate expense/payment bug','Balance shows green when you are owed, red when you owe','Green launch screen (no more black flash)']},
@@ -944,7 +945,12 @@ function openSettle(){
       arr.forEach(function(s,i){
         var upi=box.querySelector('[data-upi="'+i+'"]'),paid=box.querySelector('[data-paid="'+i+'"]');
         if(upi)upi.onclick=function(){window.location.href='upi://pay?pa=&pn='+encodeURIComponent(s.toName)+'&am='+s.amount+'&cu=INR&tn='+encodeURIComponent('Trip '+d.trip.name);setTimeout(function(){toast('If no UPI app opened, pay manually then Mark paid');},1200);};
-        if(paid)paid.onclick=function(){if(paid.dataset.busy)return;paid.dataset.busy='1';paid.style.opacity='.6';closeModal();toast('Payment recorded');bgCall('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi',clientId:cid()});};
+        if(paid)paid.onclick=function(){
+          if(paid.dataset.busy)return;
+          if(!confirm('Mark this as paid?\n\n'+s.fromName+' → '+s.toName+'   '+money(s.amount,cur)))return;
+          if(!confirm('Are you sure? This records the payment as done.\n\nOnly do this once '+s.fromName+' has actually paid '+s.toName+'.'))return;
+          paid.dataset.busy='1';paid.style.opacity='.6';closeModal();toast('Payment recorded');
+          bgCall('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi',clientId:cid()});};
       });
     }
     wireRows(list);
@@ -1423,7 +1429,8 @@ function renderAccount(){
     '<button class="btn sec sm" id="editProf" style="margin-top:10px">✏️ Edit profile</button>'+
     (u.isAdmin?'<div class="banner" style="margin-top:12px">You are the admin — you can see all users, trips and activity, and edit any expense.</div>':'')+
     '<h2 class="sec">Appearance</h2><div class="seg" id="themeSeg"><button data-th="auto" class="'+(theme==='auto'?'on':'')+'">Auto</button><button data-th="light" class="'+(theme==='light'?'on':'')+'">Light</button><button data-th="dark" class="'+(theme==='dark'?'on':'')+'">Dark</button></div>'+adminBtn+
-    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px"><span id="verLine" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">TripSplit v'+esc(APP_VER)+'</span><div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
+    '<h2 class="sec">Support &amp; privacy</h2><button class="btn sec sm" id="contactBtn">✉️ Contact us</button><button class="btn sec sm" id="privacyBtn" style="margin-top:8px">🔒 Privacy</button><button class="btn out sm" id="delAccBtn" style="margin-top:8px;color:var(--orange)">Delete my account &amp; data</button>'+
+    '<button class="btn out" id="logoutBtn" style="margin-top:20px;color:var(--orange)">Log out</button><div class="muted" style="text-align:center;margin-top:16px"><span id="verLine" style="cursor:pointer">TripSplit v'+esc(APP_VER)+'</span><div style="margin-top:3px;font-size:11px">Developer Vaibhav Tandon</div></div>';
   shell('account',body,head);
   if(u.photoId){var a=$('#accAv');a.textContent='';a.style.backgroundImage='url(/img?id='+encodeURIComponent(u.photoId)+')';}
   Array.prototype.forEach.call($('#themeSeg').children,function(b){b.onclick=function(){Array.prototype.forEach.call($('#themeSeg').children,function(x){x.classList.remove('on');});b.classList.add('on');localStorage.setItem('tet_theme',b.getAttribute('data-th'));applyTheme();};});
@@ -1431,6 +1438,46 @@ function renderAccount(){
   if($('#editProf'))$('#editProf').onclick=openEditProfile;
   if($('#adminBtn'))$('#adminBtn').onclick=openAdmin;
   if($('#verLine'))$('#verLine').onclick=openChangelog;
+  if($('#contactBtn'))$('#contactBtn').onclick=openContact;
+  if($('#privacyBtn'))$('#privacyBtn').onclick=openPrivacy;
+  if($('#delAccBtn'))$('#delAccBtn').onclick=openDeleteAccount;
+}
+var CONTACT_CATS=['Request a feature','Report a bug','Feedback / suggestion','Account / data issue','Other'];
+function openContact(){
+  var opts=CONTACT_CATS.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+  sheetModal('Contact us','<div class="field"><label>Topic</label><select id="ctCat">'+opts+'</select></div>\
+    <div class="field"><label>Message</label><textarea id="ctMsg" rows="5" placeholder="Likhiye..."></textarea></div>\
+    <button class="btn" id="ctSend">Send</button>',
+    function(){
+      $('#ctSend').onclick=function(){
+        var msg=($('#ctMsg').value||'').trim();
+        if(msg.length<3)return toast('Message likhiye');
+        var cat=$('#ctCat').value;
+        $('#ctSend').disabled=true;$('#ctSend').textContent='Sending…';
+        call('api_contactMessage',{token:S.token,category:cat,text:msg}).then(function(){closeModal();toast('Message bhej diya — dhanyavaad!');}).catch(function(e){$('#ctSend').disabled=false;$('#ctSend').textContent='Send';toast(String(e));});
+      };
+    });
+}
+function openPrivacy(){
+  sheetModal('Privacy','<div class="card" style="padding:16px"><p style="margin-top:0"><b>What we store</b></p>\
+    <ul style="padding-left:18px;margin:6px 0 14px;font-size:14px;line-height:1.5"><li>Your name, username, email and phone (to identify you and let friends add you)</li><li>The trips, expenses and payments you add</li><li>Your location only when you tap “share location” (never in the background)</li></ul>\
+    <p style="margin:0"><b>Why</b></p><p style="font-size:14px;margin:6px 0 14px">Only to run the app — split expenses and settle up within your trips. We don’t sell your data or use third-party trackers/analytics.</p>\
+    <p style="margin:0"><b>Who can see it</b></p><p style="font-size:14px;margin:6px 0 14px">Only members of your trips, and the app admin. Passwords are stored encrypted (salted hash).</p>\
+    <p style="margin:0"><b>Your control</b></p><p style="font-size:14px;margin:6px 0 0">You can edit your profile anytime, or delete your account and data from the button in Account.</p></div>');
+}
+function openDeleteAccount(){
+  sheetModal('Delete my account & data','<div class="card" style="padding:16px"><p style="margin-top:0;font-size:14px;line-height:1.5">This permanently removes your profile — your name, username, email, phone and password — and signs you out.</p>\
+    <p style="font-size:14px;line-height:1.5">Expenses you already added in shared trips stay, so your friends’ settle-up stays correct, but they will no longer be linked to a login.</p>\
+    <p style="font-size:13px;color:var(--sub)">This cannot be undone.</p>\
+    <button class="btn out" id="delGo" style="color:var(--orange)">Delete my account</button></div>',
+    function(){
+      $('#delGo').onclick=function(){
+        if(!confirm('Delete your account and personal data? This cannot be undone.'))return;
+        if(!confirm('Last check — really delete your account?'))return;
+        $('#delGo').disabled=true;$('#delGo').textContent='Deleting…';
+        call('api_deleteAccount',{token:S.token}).then(function(){toast('Account deleted');logout();}).catch(function(e){$('#delGo').disabled=false;$('#delGo').textContent='Delete my account';toast(String(e));});
+      };
+    });
 }
 function openChangelog(){
   var html='<p class="muted" style="margin-top:0">What\'s new in TripSplit, newest first.</p>';

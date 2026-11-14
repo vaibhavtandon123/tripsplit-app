@@ -290,6 +290,8 @@ function sdate(iso){try{return new Date(iso).toLocaleDateString('en-IN',{day:'2-
 function sdt(iso){try{return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
 function dayLabel(d){try{var t=new Date().toISOString().slice(0,10);return d===t?'Today':new Date(d).toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'});}catch(e){return d;}}
 function todayStr(){return new Date().toISOString().slice(0,10);}
+function nowTime(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+function fmtTime(t){if(!t)return'';var p=String(t).split(':');if(p.length<2)return'';var h=+p[0],m=p[1],ap=h<12?'AM':'PM',h12=h%12;if(h12===0)h12=12;return h12+':'+m+' '+ap;}
 
 function call(fn,arg){return fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fn:fn,arg:arg})}).then(function(r){return r.json();}).then(function(d){if(d&&Object.prototype.hasOwnProperty.call(d,'e'))throw d.e;return d?d.r:null;});}
 function toast(msg){var t=$('#toast');t.innerHTML='';var n=el('<div class="toast">'+esc(msg)+'</div>');t.appendChild(n);setTimeout(function(){n.remove();},2800);}
@@ -712,7 +714,8 @@ function openAddExpense(existing){
   var html='<div class="field"><label>Description</label><input id="eDesc" class="capsField" placeholder="e.g. Dinner, Taxi, Hotel" value="'+esc(ex?ex.description:'')+'"></div>\
     <div class="row2"><div class="field" style="flex:1.3"><label>Amount ('+(CUR[cur]||cur)+')</label><input id="eAmt" type="number" inputmode="decimal" placeholder="0.00" value="'+(ex?ex.amount:'')+'"></div>\
     <div class="field" style="flex:1"><label>Category</label><select id="eCat">'+catOpts+'</select></div></div>\
-    <div class="field"><label>Date</label><input id="eDate" type="date" value="'+(ex&&ex.spentOn?ex.spentOn:todayStr())+'"></div>\
+    <div class="row2"><div class="field" style="flex:1"><label>Date</label><input id="eDate" type="date" value="'+(ex&&ex.spentOn?ex.spentOn:todayStr())+'"></div>\
+    <div class="field" style="flex:1"><label>Time</label><input id="eTime" type="time" value="'+(ex&&ex.spentTime?ex.spentTime:nowTime())+'"></div></div>\
     <div id="stayBox" style="display:none"><div class="row2"><div class="field" style="flex:1"><label>Check-in</label><input id="eCheckIn" type="date" value="'+(ex&&ex.stay?ex.stay.checkIn:'')+'"></div>\
       <div class="field" style="flex:1"><label>Check-out</label><input id="eCheckOut" type="date" value="'+(ex&&ex.stay?ex.stay.checkOut:'')+'"></div></div>\
       <div class="muted" id="nightsInfo" style="margin:-4px 2px 8px;font-size:13px"></div></div>\
@@ -835,18 +838,18 @@ function buildPayers(pstate,members,amt,singlePayer){
 }
 function saveExpense(ex,state,pstate,members,cur){
   var desc=$('#eDesc').value.trim(),amt=Number($('#eAmt').value)||0,cat=$('#eCat').value;if(cat==='__new')cat='Other';
-  var singlePayer=$('#ePaid').value,note=$('#eNote').value.trim(),spentOn=$('#eDate').value||todayStr();
+  var singlePayer=$('#ePaid').value,note=$('#eNote').value.trim(),spentOn=$('#eDate').value||todayStr(),spentTime=($('#eTime')?$('#eTime').value:'')||nowTime();
   if(!desc)return toast('Enter a description');if(amt<=0)return toast('Enter an amount');
   var sp=buildSplit(state,members,amt);if(sp===null)return toast('Pick at least one person');if(typeof sp==='string')return toast(sp);
   var payers=buildPayers(pstate,members,amt,singlePayer);if(typeof payers==='string')return toast(payers);
   var stay=null;if(cat==='Stay'){var ci=$('#eCheckIn')&&$('#eCheckIn').value,co=$('#eCheckOut')&&$('#eCheckOut').value;if(ci&&co){var nn=Math.round((new Date(co)-new Date(ci))/86400000);if(nn<=0)return toast('Check-out should be after check-in');stay={checkIn:ci,checkOut:co,nights:nn};}}
-  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:sp.type,split:sp.split,payers:payers,note:note,spentOn:spentOn,stay:stay,clientTime:new Date().toISOString(),clientId:cid()};
+  var payload={token:S.token,tripId:S.trip.tripId,description:desc,category:cat,amount:amt,splitType:sp.type,split:sp.split,payers:payers,note:note,spentOn:spentOn,spentTime:spentTime,stay:stay,clientTime:new Date().toISOString(),clientId:cid()};
   function send(receipt){
     payload.receipt=receipt||'';
     if(ex){
       payload.expenseId=ex.expenseId;
       var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
-      if(le){le.description=desc;le.category=cat;le.amount=amt;le.splitType=sp.type;le.split=sp.split;le.payers=payers;le.note=note;le.spentOn=spentOn;le.stay=stay;le.editedBy=S.user.userId;le.editedAt=payload.clientTime;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
+      if(le){le.description=desc;le.category=cat;le.amount=amt;le.splitType=sp.type;le.split=sp.split;le.payers=payers;le.note=note;le.spentOn=spentOn;le.spentTime=spentTime;le.stay=stay;le.editedBy=S.user.userId;le.editedAt=payload.clientTime;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
       closeModal();renderDashboard();toast('Saved');
       bgCall('api_editExpense',payload);
     }
@@ -860,7 +863,7 @@ function saveExpense(ex,state,pstate,members,cur){
   var f=$('#eReceipt').files[0];if(f)fileToResized(f,1200).then(send);else send('');
 }
 function optimisticAdd(payload){
-  var e={expenseId:'tmp-'+Date.now(),description:payload.description,category:payload.category,amount:payload.amount,paidBy:Object.keys(payload.payers)[0],payers:payload.payers,splitType:payload.splitType,split:payload.split,note:payload.note,spentOn:payload.spentOn,ticket:null,stay:payload.stay||null,receiptId:'',addedBy:S.user.userId,addedAt:payload.clientTime,editedBy:'',editedAt:'',deleted:false,_pending:true};
+  var e={expenseId:'tmp-'+Date.now(),description:payload.description,category:payload.category,amount:payload.amount,paidBy:Object.keys(payload.payers)[0],payers:payload.payers,splitType:payload.splitType,split:payload.split,note:payload.note,spentOn:payload.spentOn,spentTime:payload.spentTime,ticket:null,stay:payload.stay||null,receiptId:'',addedBy:S.user.userId,addedAt:payload.clientTime,editedBy:'',editedAt:'',deleted:false,_pending:true};
   S.data.expenses.unshift(e);cacheSet('tet_trip_'+S.trip.tripId,S.data);renderDashboard();
 }
 function setData(d){if(!d||!d.trip){toast('Save failed — please retry');return;}S.trip=d.trip;S.data=d;cacheSet('tet_trip_'+d.trip.tripId,d);}
@@ -876,7 +879,7 @@ function openExpenseDetail(e){
   var meta='Added by '+(nameOfUser(e.addedBy)||'?')+' · '+sdt(e.addedAt);
   if(e.editedBy)meta+='<br>Edited by '+(nameOfUser(e.editedBy)||'?')+' · '+sdt(e.editedAt);
   if(e.deleted)meta+='<br><span style="color:var(--orange)">Deleted by '+(nameOfUser(e.deletedBy)||'?')+' · '+sdt(e.deletedAt)+'</span>';
-  var html='<div style="text-align:center;margin-bottom:8px"><div style="font-size:34px">'+catIcon(e.category)+'</div><div style="font-size:20px;font-weight:700'+(e.deleted?';text-decoration:line-through;color:var(--sub)':'')+'">'+esc(e.description)+'</div><div style="font-size:24px;font-weight:700;color:var(--mint)">'+money(e.amount,cur)+'</div><div class="muted">'+esc(e.category)+' · '+sdate(e.spentOn)+'</div></div>'+
+  var html='<div style="text-align:center;margin-bottom:8px"><div style="font-size:34px">'+catIcon(e.category)+'</div><div style="font-size:20px;font-weight:700'+(e.deleted?';text-decoration:line-through;color:var(--sub)':'')+'">'+esc(e.description)+'</div><div style="font-size:24px;font-weight:700;color:var(--mint)">'+money(e.amount,cur)+'</div><div class="muted">'+esc(e.category)+' · '+sdate(e.spentOn)+(e.spentTime?' · '+fmtTime(e.spentTime):'')+'</div></div>'+
     (e.note?'<div class="banner">📝 '+esc(e.note)+'</div>':'')+
     '<div class="muted" style="margin:6px 2px">Paid by</div><div class="card" style="padding:4px 16px">'+payLines+'</div>'+
     '<div class="muted" style="margin:6px 2px">Split</div><div class="card" style="padding:4px 16px">'+shareLines+'</div>'+stayHtml+tk+receipt+
@@ -909,18 +912,47 @@ function myCanEdit(e){if(S.trip.isAdmin)return true;var my=S.data.me.memberId;if
 /* ===========================================================
  *  ALL EXPENSES (grouped by day)
  * ========================================================= */
+var _allSort='date';
 function openAllExpenses(){
   var d=S.data;
   var head='<div class="top"><button class="back" id="bk2">‹ '+esc(d.trip.name)+'</button><h1 style="font-size:17px">All expenses</h1></div>';
-  shell('trips','<div id="allList"></div>',head);$('#bk2').onclick=renderDashboard;
-  var list=$('#allList'),act=d.expenses.filter(function(e){return !e.ticket;});
+  var sortSel='<div class="field" style="margin-bottom:8px"><label>Sort by</label><select id="allSort">\
+    <option value="date">Date (newest first)</option>\
+    <option value="amt_hi">Amount: high → low</option>\
+    <option value="amt_lo">Amount: low → high</option>\
+    <option value="cat">Category</option>\
+    <option value="payer">Paid by</option></select></div>';
+  shell('trips',sortSel+'<div id="allList"></div>',head);$('#bk2').onclick=renderDashboard;
+  $('#allSort').value=_allSort; $('#allSort').onchange=function(){_allSort=this.value;renderAllList();};
+  renderAllList();
+}
+function renderAllList(){
+  var d=S.data,cur=d.trip.currency,list=$('#allList'); if(!list)return; list.innerHTML='';
+  var act=d.expenses.filter(function(e){return !e.ticket;});
   if(!act.length){list.innerHTML='<div class="center">No expenses yet</div>';return;}
-  var groups={};act.forEach(function(e){var day=e.spentOn||String(e.addedAt).slice(0,10);(groups[day]=groups[day]||[]).push(e);});
-  Object.keys(groups).sort().reverse().forEach(function(day){
-    var tot=groups[day].filter(function(e){return !e.deleted;}).reduce(function(s,e){return s+e.amount;},0);
-    list.appendChild(el('<div class="daygroup"><span>'+esc(dayLabel(day))+'</span><span>'+money0(tot,d.trip.currency)+'</span></div>'));
-    groups[day].forEach(function(e){list.appendChild(expRow(e));});
-  });
+  function hdr(label,tot){list.appendChild(el('<div class="daygroup"><span>'+esc(label)+'</span><span>'+money0(tot,cur)+'</span></div>'));}
+  if(_allSort==='date'){
+    var groups={};act.forEach(function(e){var day=e.spentOn||String(e.addedAt).slice(0,10);(groups[day]=groups[day]||[]).push(e);});
+    Object.keys(groups).sort().reverse().forEach(function(day){
+      groups[day].sort(function(a,b){var ta=a.spentTime||'',tb=b.spentTime||'';if(ta&&tb&&ta!==tb)return tb<ta?-1:1;return (a.addedAt<b.addedAt)?1:-1;});
+      var tot=groups[day].filter(function(e){return !e.deleted;}).reduce(function(s,e){return s+e.amount;},0);
+      hdr(dayLabel(day),tot);
+      groups[day].forEach(function(e){list.appendChild(expRow(e));});
+    });
+  } else {
+    var arr=act.slice();
+    if(_allSort==='amt_hi')arr.sort(function(a,b){return b.amount-a.amount;});
+    else if(_allSort==='amt_lo')arr.sort(function(a,b){return a.amount-b.amount;});
+    else if(_allSort==='cat')arr.sort(function(a,b){return (a.category||'').localeCompare(b.category||'')||(b.amount-a.amount);});
+    else if(_allSort==='payer')arr.sort(function(a,b){return payerLabel(a).localeCompare(payerLabel(b))||(b.amount-a.amount);});
+    if(_allSort==='cat'||_allSort==='payer'){
+      var keyOf=function(e){return _allSort==='cat'?(e.category||'Other'):payerLabel(e);};
+      var lastKey=null;
+      arr.forEach(function(e){var key=keyOf(e);if(key!==lastKey){lastKey=key;var tot=arr.filter(function(x){return keyOf(x)===key&&!x.deleted;}).reduce(function(s,x){return s+x.amount;},0);hdr(key,tot);}list.appendChild(expRow(e));});
+    } else {
+      arr.forEach(function(e){list.appendChild(expRow(e));});
+    }
+  }
 }
 
 /* ===========================================================

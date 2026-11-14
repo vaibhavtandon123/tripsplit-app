@@ -64,7 +64,7 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='10'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','10'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='11'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','11'); } }
   return ss;
 }
 
@@ -72,7 +72,7 @@ var SCHEMA={
   Users:['userId','fullName','username','passHash','salt','email','mobile','photoId','tokenHash','tokenExp','createdAt','isAdmin','dob','lastLogin'],
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel','coverPreset'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
-  Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON','clientId'],
+  Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','spentTime','ticketJSON','stayJSON','clientId'],
   Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt','clientId','status','confirmedBy','confirmedAt'],
   Activity:['id','tripId','actorId','actorName','action','detail','at']
 };
@@ -416,7 +416,7 @@ function api_addExpense(p){
   appendRow_('Expenses',{expenseId:id,tripId:trip.tripId,description:(p.description||'').trim(),category:p.category||'Other',
     amount:amount,currency:trip.currency,paidBy:p.paidBy||'',splitType:p.splitType||'equal',splitJSON:JSON.stringify(p.split||{}),
     receiptId:receiptId,addedBy:me.userId,addedAt:p.clientTime||now_(),editedBy:'',editedAt:'',deleted:'',deletedBy:'',deletedAt:'',
-    payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),spentOn:p.spentOn||(p.clientTime||now_()).slice(0,10),
+    payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),spentOn:p.spentOn||(p.clientTime||now_()).slice(0,10),spentTime:p.spentTime||'',
     ticketJSON:p.ticket?JSON.stringify(p.ticket):'',stayJSON:p.stay?JSON.stringify(p.stay):'',clientId:p.clientId||''});
   logAct_(trip.tripId,me,'add','Added "'+(p.description||'').trim()+'" ('+fmtMoney_(amount,trip.currency)+')');
   backup_(); return getTripData_(trip.tripId,me);
@@ -430,6 +430,7 @@ function api_editExpense(p){
     splitType:p.splitType||e.splitType,splitJSON:JSON.stringify(p.split||{}),editedBy:me.userId,editedAt:now_(),
     payersJSON:JSON.stringify(normalizePayers_(p,amount)),note:(p.note||'').trim(),stayJSON:p.stay?JSON.stringify(p.stay):''};
   if(p.spentOn) patch.spentOn=p.spentOn;
+  if(p.spentTime!==undefined) patch.spentTime=p.spentTime||'';
   if(p.receipt) patch.receiptId=saveReceipt_(p.receipt,trip.name,e.expenseId);
   updateWhere_('Expenses','expenseId',e.expenseId,patch);
   logAct_(trip.tripId,me,'edit','Edited "'+patch.description+'"');
@@ -666,7 +667,7 @@ function getTripData_(tripId,me){
     var ticket=null; try{ ticket=e.ticketJSON?JSON.parse(e.ticketJSON):null; }catch(x){}
     var stay=null; try{ stay=e.stayJSON?JSON.parse(e.stayJSON):null; }catch(x){}
     return {expenseId:e.expenseId,description:e.description,category:e.category,amount:Number(e.amount),paidBy:e.paidBy,
-      payers:payers,splitType:e.splitType,split:split,note:e.note||'',spentOn:dayStr_(e.spentOn||e.addedAt),
+      payers:payers,splitType:e.splitType,split:split,note:e.note||'',spentOn:dayStr_(e.spentOn||e.addedAt),spentTime:e.spentTime||'',
       ticket:ticket,stay:stay,receiptId:e.receiptId,addedBy:e.addedBy,addedAt:dStr_(e.addedAt),editedBy:e.editedBy,editedAt:dStr_(e.editedAt),
       deleted:!!e.deleted,deletedBy:e.deletedBy,deletedAt:dStr_(e.deletedAt)};
   }).sort(function(a,b){return a.addedAt<b.addedAt?1:-1;});

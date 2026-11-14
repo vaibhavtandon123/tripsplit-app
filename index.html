@@ -986,8 +986,11 @@ function openSettle(){
   var sv=cacheGet('tet_simplify_'+d.trip.tripId); var simplify=(sv===false)?false:true;
   var hasDirect=!!(d.settleDirect);
   var list=(simplify||!hasDirect)?(d.settle||[]):(d.settleDirect||[]);
+  var _pendPairs={},_anyPending=false;(d.payments||[]).forEach(function(p){if(p.status==='pending'){_pendPairs[p.fromId+'>'+p.toId]=true;_anyPending=true;}});
+  function filterPending(arr){return (arr||[]).filter(function(s){return !_pendPairs[s.fromId+'>'+s.toId];});}
+  list=filterPending(list);
   function settleRowsHtml(arr){
-    if(!arr.length)return '<div class="center" style="height:auto;padding:30px 0">✓ Everyone is settled up</div>';
+    if(!arr.length)return '<div class="center" style="height:auto;padding:30px 0">'+(_anyPending?'Nothing else to settle — the payment above is waiting to be confirmed.':'✓ Everyone is settled up')+'</div>';
     return arr.map(function(s,i){return '<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(s.fromName)+'</b><span class="ar">→</span><b>'+esc(s.toName)+'</b><span style="margin-left:auto;font-weight:700;font-size:16px">'+money(s.amount,cur)+'</span></div><div class="row2" style="margin-top:10px"><button class="btn sm orange" data-upi="'+i+'">Pay by UPI</button><button class="btn sm sec" data-paid="'+i+'">Mark paid</button></div></div>';}).join('');
   }
   var html='';
@@ -1039,7 +1042,7 @@ function openSettle(){
     wireRows(list);
     if($('#simpTog'))$('#simpTog').onchange=function(){
       var on=this.checked; cacheSet('tet_simplify_'+d.trip.tripId,on);
-      var nl=(on||!hasDirect)?(d.settle||[]):(d.settleDirect||[]);
+      var nl=filterPending((on||!hasDirect)?(d.settle||[]):(d.settleDirect||[]));
       var box=$('#settleList'); if($('#simpSub'))$('#simpSub').textContent=on?'Fewest payments (combined)':'Direct — pay who you owe';
       box.style.opacity='0';
       setTimeout(function(){ box.innerHTML=settleRowsHtml(nl); wireRows(nl); box.style.opacity='1'; },170);

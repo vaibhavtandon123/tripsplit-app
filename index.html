@@ -317,7 +317,7 @@ async function flushQueue(){if(_flushing)return;var q=queueGet();if(!q.length||!
   queueSet(rest);_flushing=false;
   if(ok){if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);if(!rest.length)toast('Synced '+ok+' change'+(ok>1?'s':''));}}
 // Fire a mutating call in the background (non-blocking). On a lost connection, queue it to sync later (idempotent on the server).
-function bgCall(fn,arg){return call(fn,arg).then(function(d){if(d&&d.trip){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&!(($('#modal')||{}).innerHTML))renderDashboard();}}).catch(function(e){if(e instanceof TypeError||!navigator.onLine){queueAdd(fn,arg);toast('Saved — will sync shortly');}else{toast(String(e));if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);}});}
+function bgCall(fn,arg){return call(fn,arg).then(function(d){if(d&&d.trip){setData(d);if(S.trip&&d.trip&&S.trip.tripId===d.trip.tripId&&!(($('#modal')||{}).innerHTML))reRenderDash();}}).catch(function(e){if(e instanceof TypeError||!navigator.onLine){queueAdd(fn,arg);toast('Saved — will sync shortly');}else{toast(String(e));if(S.trip&&S.trip.tripId)refreshTrip(S.trip.tripId);}});}
 window.addEventListener('online',function(){$('#offline').classList.add('hidden');flushQueue().then(function(){if(S.trip)refreshTrip(S.trip.tripId);});});
 window.addEventListener('offline',function(){$('#offline').classList.remove('hidden');});
 if(!navigator.onLine)$('#offline').classList.remove('hidden');
@@ -397,6 +397,7 @@ function fileToResized(file,max){return new Promise(function(res){var rd=new Fil
  *  SHELL / TABS
  * ========================================================= */
 function shell(active,bodyHtml,headerHtml){
+  var _prev=document.querySelector('.screen'); var _prevTop=_prev?_prev.scrollTop:0;
   $('#app').innerHTML='';
   var wrap=el('<div class="app" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>');
   if(headerHtml)wrap.appendChild(el(headerHtml));
@@ -404,14 +405,19 @@ function shell(active,bodyHtml,headerHtml){
   if(_backNav){scr.style.animation='scrBack .24s cubic-bezier(.22,.61,.36,1)';}
   _backNav=false;
   wrap.appendChild(scr);
-  wrap.appendChild(tabBar(active));$('#app').appendChild(wrap);enablePull(scr);return scr;
+  wrap.appendChild(tabBar(active));$('#app').appendChild(wrap);enablePull(scr);
+  if(_keepScroll&&_prevTop){scr.scrollTop=_prevTop;requestAnimationFrame(function(){scr.scrollTop=_prevTop;});}
+  _keepScroll=false;
+  return scr;
 }
+var _keepScroll=false;
+function reRenderDash(){ _keepScroll=true; renderDashboard(); }
 /* ---- live refresh: swipe-down + when app returns to foreground ---- */
 function refreshCurrent(cb){
   cb=cb||function(){};
   if(!S.token||($('#modal')&&$('#modal').innerHTML)){cb();return;}
   if(S.trip&&S.trip.tripId){
-    call('api_tripData',{token:S.token,tripId:S.trip.tripId}).then(function(d){if(d&&d.trip){cacheSet('tet_trip_'+d.trip.tripId,d);if(S.trip&&S.trip.tripId===d.trip.tripId){S.trip=d.trip;S.data=d;if(document.querySelector('.balc2')&&!(($('#modal')||{}).innerHTML))renderDashboard();}}}).catch(function(){}).then(cb);
+    call('api_tripData',{token:S.token,tripId:S.trip.tripId}).then(function(d){if(d&&d.trip){cacheSet('tet_trip_'+d.trip.tripId,d);if(S.trip&&S.trip.tripId===d.trip.tripId){S.trip=d.trip;S.data=d;if(document.querySelector('.balc2')&&!(($('#modal')||{}).innerHTML))reRenderDash();}}}).catch(function(){}).then(cb);
   } else if(S.tab==='trips'){
     call('api_myTrips',S.token).then(function(list){cacheSet('tet_trips',list);if($('#triplist')&&!S.trip)paintTrips(list);}).catch(function(){}).then(cb);
   } else if(S.tab==='friends'&&typeof renderFriends==='function'){ renderFriends();cb();
@@ -577,7 +583,7 @@ function openTrip(id){
   }
 }
 function refreshTrip(id){
-  call('api_tripData',{token:S.token,tripId:id}).then(function(d){if(!d||!d.trip)return;cacheSet('tet_trip_'+id,d);if(S.trip&&S.trip.tripId===id){S.trip=d.trip;S.data=d;if(S.tab==='trips'&&!$('#modal').innerHTML)renderDashboard();}}).catch(function(){});
+  call('api_tripData',{token:S.token,tripId:id}).then(function(d){if(!d||!d.trip)return;cacheSet('tet_trip_'+id,d);if(S.trip&&S.trip.tripId===id){S.trip=d.trip;S.data=d;if(S.tab==='trips'&&!$('#modal').innerHTML)reRenderDash();}}).catch(function(){});
 }
 function pendingInfo(){
   var d=S.data||{}, me=d.me||{}, myMid=me.memberId, admin=(d.trip||{}).isAdmin;

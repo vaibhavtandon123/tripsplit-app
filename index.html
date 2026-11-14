@@ -873,7 +873,7 @@ function saveExpense(ex,state,pstate,members,cur){
       payload.expenseId=ex.expenseId;
       var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
       if(le){le.description=desc;le.category=cat;le.amount=amt;le.splitType=sp.type;le.split=sp.split;le.payers=payers;le.note=note;le.spentOn=spentOn;le.spentTime=spentTime;le.stay=stay;le.editedBy=S.user.userId;le.editedAt=payload.clientTime;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
-      closeModal();renderDashboard();toast('Saved');
+      closeModal();openExpenseDetail(le||ex);toast('Saved');
       bgCall('api_editExpense',payload);
     }
     else{

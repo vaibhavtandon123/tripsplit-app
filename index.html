@@ -579,6 +579,13 @@ function openTrip(id){
 function refreshTrip(id){
   call('api_tripData',{token:S.token,tripId:id}).then(function(d){if(!d||!d.trip)return;cacheSet('tet_trip_'+id,d);if(S.trip&&S.trip.tripId===id){S.trip=d.trip;S.data=d;if(S.tab==='trips'&&!$('#modal').innerHTML)renderDashboard();}}).catch(function(){});
 }
+function pendingInfo(){
+  var d=S.data||{}, me=d.me||{}, myMid=me.memberId, admin=(d.trip||{}).isAdmin;
+  var byId={}; (d.members||[]).forEach(function(m){byId[m.memberId]=m;});
+  function iReceive(p){ if(p.toId===myMid)return true; var tm=byId[p.toId]; if(tm&&tm.headId===myMid)return true; return !!admin; }
+  var pend=(d.payments||[]).filter(function(p){return p.status==='pending';});
+  return {toConfirm:pend.filter(iReceive), waiting:pend.filter(function(p){ return !iReceive(p) && (p.fromId===myMid || (byId[p.fromId]&&byId[p.fromId].headId===myMid) || p.recordedBy===me.userId); })};
+}
 function renderDashboard(updating){
   if(!S.data||!S.data.trip){ renderTrips(); return; }
   var d=S.data,t=d.trip,cur=t.currency;
@@ -600,6 +607,13 @@ function renderDashboard(updating){
       <div class="bch"><div class="bl">People</div><div class="bv">'+d.members.length+'</div></div>\
       <div class="bch"><div class="bl">To settle</div><div class="bv">'+money0(settleTotal,cur)+'</div></div>\
     </div></div>';
+  var pend=pendingInfo(),pendHtml='';
+  pend.toConfirm.forEach(function(p){
+    pendHtml+='<div class="card" style="padding:14px 16px;margin-top:10px;border:1.5px solid var(--mint)"><div style="font-weight:600"><b>'+esc(p.fromName)+'</b> says they paid you <b>'+money(p.amount,cur)+'</b></div><div class="row2" style="margin-top:10px"><button class="btn sm" data-confirm="'+esc(p.paymentId)+'">✓ Yes, received</button><button class="btn out sm" data-reject="'+esc(p.paymentId)+'">Not yet</button></div></div>';
+  });
+  pend.waiting.forEach(function(p){
+    pendHtml+='<div class="muted" style="margin-top:10px;font-size:13px">⏳ Waiting for <b>'+esc(p.toName)+'</b> to confirm '+money(p.amount,cur)+' · <a data-cancel="'+esc(p.paymentId)+'" style="color:var(--orange);cursor:pointer">Cancel</a></div>';
+  });
   var lock=t.locked?'<div class="lockbanner" style="margin-top:14px">🔒 This trip is locked — view only. Open ⋯ to unlock.</div>':'';
   var budget='';
   if(t.budget){var pct=Math.round(d.total/t.budget*100),col=pct>=100?'var(--orange)':(pct>=80?'#E8A13A':'var(--mint)');
@@ -609,7 +623,7 @@ function renderDashboard(updating){
   var donut=buildDonut(d.byCategory,d.total,cur);
   var settleHtml='';
   if(d.settle.length){settleHtml='<h2 class="sec">Settle up</h2><div class="card" style="padding:4px 16px">';d.settle.slice(0,4).forEach(function(s){settleHtml+='<div class="settle"><span class="nm">'+esc(s.fromName)+'</span><span class="ar">→</span><span class="nm">'+esc(s.toName)+'</span><span class="mo">'+money0(s.amount,cur)+'</span></div>';});settleHtml+='</div><button class="btn out sm" id="settleBtn2">Open settle up</button>';}
-  var body=hero+balCard+lock+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
+  var body=hero+balCard+pendHtml+lock+budget+'<h2 class="sec">Spending by category</h2>'+donut+catB+settleHtml+
     '<h2 class="sec" style="display:flex;justify-content:space-between">Recent expenses <a id="allExp" style="color:var(--mint);font-size:13px;font-weight:600">See all</a></h2><div id="expMini"></div>\
     <div class="row2" style="margin-top:14px"><button class="btn sec sm" id="shareBtn">📤 Share</button><button class="btn sec sm" id="ticketBtn">🎟️ Tickets</button><button class="btn sec sm" id="addPpl">👥 People</button></div>\
     <button class="btn sec sm" id="locBtn" style="margin-top:10px">📍 Locations map</button>';
@@ -618,6 +632,9 @@ function renderDashboard(updating){
   if($('#settleBtn'))$('#settleBtn').onclick=openSettle;
   if($('#settleBtn2'))$('#settleBtn2').onclick=openSettle;
   $('#allExp').onclick=openAllExpenses;$('#shareBtn').onclick=openShare;$('#addPpl').onclick=openPeople;$('#ticketBtn').onclick=openTripTickets;$('#locBtn').onclick=openLocations;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-confirm]'),function(b){b.onclick=function(){if(b.dataset.busy)return;b.dataset.busy='1';b.style.opacity='.6';toast('Confirmed — settled');bgCall('api_confirmPayment',{token:S.token,paymentId:b.getAttribute('data-confirm')});};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-reject]'),function(b){b.onclick=function(){if(!confirm('Mark as NOT received? This removes the pending payment.'))return;b.style.opacity='.6';bgCall('api_cancelPayment',{token:S.token,paymentId:b.getAttribute('data-reject')});};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cancel]'),function(b){b.onclick=function(){if(!confirm('Cancel this pending payment?'))return;bgCall('api_cancelPayment',{token:S.token,paymentId:b.getAttribute('data-cancel')});};});
   if(t.coverId&&$('#heroBox'))$('#heroBox').style.background='linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.42)),url(/img?id='+encodeURIComponent(t.coverId)+') center/cover';
   var mini=$('#expMini'),act=d.expenses.filter(function(e){return !e.deleted && !e.ticket;}).slice(0,5);
   if(!act.length)mini.innerHTML='<div class="muted" style="padding:10px 2px">No expenses yet. Tap ＋ to add one.</div>';
@@ -913,6 +930,12 @@ function openSettle(){
     return arr.map(function(s,i){return '<div class="card" style="padding:14px 16px"><div style="display:flex;align-items:center;gap:8px"><b>'+esc(s.fromName)+'</b><span class="ar">→</span><b>'+esc(s.toName)+'</b><span style="margin-left:auto;font-weight:700;font-size:16px">'+money(s.amount,cur)+'</span></div><div class="row2" style="margin-top:10px"><button class="btn sm orange" data-upi="'+i+'">Pay by UPI</button><button class="btn sm sec" data-paid="'+i+'">Mark paid</button></div></div>';}).join('');
   }
   var html='';
+  var pend=pendingInfo();
+  if(pend.toConfirm.length||pend.waiting.length){
+    html+='<h2 class="sec" style="margin-top:0">Pending confirmation</h2>';
+    pend.toConfirm.forEach(function(p){ html+='<div class="card" style="padding:14px 16px;margin-bottom:8px;border:1.5px solid var(--mint)"><div style="font-weight:600"><b>'+esc(p.fromName)+'</b> says they paid you <b>'+money(p.amount,cur)+'</b></div><div class="row2" style="margin-top:10px"><button class="btn sm" data-confirm="'+esc(p.paymentId)+'">✓ Yes, received</button><button class="btn out sm" data-reject="'+esc(p.paymentId)+'">Not yet</button></div></div>'; });
+    pend.waiting.forEach(function(p){ html+='<div class="muted" style="margin:0 2px 8px;font-size:13px">⏳ Waiting for <b>'+esc(p.toName)+'</b> to confirm '+money(p.amount,cur)+' · <a data-cancel="'+esc(p.paymentId)+'" style="color:var(--orange);cursor:pointer">Cancel</a></div>'; });
+  }
   if(hasDirect)html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:13px 16px;margin-bottom:12px"><div style="flex:1"><b style="font-size:14px">Simplify debts</b><div class="muted" id="simpSub" style="font-size:12px">'+(simplify?'Fewest payments (combined)':'Direct — pay who you owe')+'</div></div><label class="switch"><input type="checkbox" id="simpTog"'+(simplify?' checked':'')+'><span class="track"></span></label></div>';
   html+='<div id="settleList" style="transition:opacity .18s">'+settleRowsHtml(list)+'</div>';
   var stats=d.memberStats||[];
@@ -947,9 +970,8 @@ function openSettle(){
         if(upi)upi.onclick=function(){window.location.href='upi://pay?pa=&pn='+encodeURIComponent(s.toName)+'&am='+s.amount+'&cu=INR&tn='+encodeURIComponent('Trip '+d.trip.name);setTimeout(function(){toast('If no UPI app opened, pay manually then Mark paid');},1200);};
         if(paid)paid.onclick=function(){
           if(paid.dataset.busy)return;
-          if(!confirm('Mark this as paid?\n\n'+s.fromName+' → '+s.toName+'   '+money(s.amount,cur)))return;
-          if(!confirm('Are you sure? This records the payment as done.\n\nOnly do this once '+s.fromName+' has actually paid '+s.toName+'.'))return;
-          paid.dataset.busy='1';paid.style.opacity='.6';closeModal();toast('Payment recorded');
+          if(!confirm('Mark as paid?\n\n'+s.fromName+' → '+s.toName+'   '+money(s.amount,cur)+'\n\n'+s.toName+' ko confirm karna padega ki paisa mila, tabhi settle hoga.'))return;
+          paid.dataset.busy='1';paid.style.opacity='.6';closeModal();toast('Sent — waiting for '+s.toName+' to confirm');
           bgCall('api_recordPayment',{token:S.token,tripId:d.trip.tripId,fromId:s.fromId,toId:s.toId,amount:s.amount,method:'upi',clientId:cid()});};
       });
     }
@@ -962,6 +984,9 @@ function openSettle(){
       setTimeout(function(){ box.innerHTML=settleRowsHtml(nl); wireRows(nl); box.style.opacity='1'; },170);
     };
     $('#shareFromSettle').onclick=function(){closeModal();openShare();};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-confirm]'),function(b){b.onclick=function(){if(b.dataset.busy)return;b.dataset.busy='1';b.style.opacity='.6';call('api_confirmPayment',{token:S.token,paymentId:b.getAttribute('data-confirm')}).then(function(dd){setData(dd);openSettle();toast('Confirmed — settled');}).catch(function(e){toast(String(e));});};});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-reject]'),function(b){b.onclick=function(){if(!confirm('Mark as NOT received? This removes the pending payment.'))return;call('api_cancelPayment',{token:S.token,paymentId:b.getAttribute('data-reject')}).then(function(dd){setData(dd);openSettle();}).catch(function(e){toast(String(e));});};});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cancel]'),function(b){b.onclick=function(){if(!confirm('Cancel this pending payment?'))return;call('api_cancelPayment',{token:S.token,paymentId:b.getAttribute('data-cancel')}).then(function(dd){setData(dd);openSettle();}).catch(function(e){toast(String(e));});};});
     Array.prototype.forEach.call(document.querySelectorAll('.jebrow'),function(r){
       r.onclick=function(){openPaidDetail(r.getAttribute('data-jeb'));};
     });

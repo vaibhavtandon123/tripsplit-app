@@ -64,7 +64,7 @@ function db_(){
     else { ss=SpreadsheetApp.create(SS_NAME); var f=DriveApp.getFileById(ss.getId()); folder.addFile(f); DriveApp.getRootFolder().removeFile(f); }
     props.setProperty('SS_ID',ss.getId());
   }
-  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='9'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','9'); } }
+  if(!_ensured){ _ensured=true; if(props.getProperty('SCHEMA_V')!=='10'){ ensureSheets_(ss); props.setProperty('SCHEMA_V','10'); } }
   return ss;
 }
 
@@ -73,7 +73,7 @@ var SCHEMA={
   Trips:['tripId','name','code','currency','budget','createdBy','createdAt','startDate','endDate','status','cats','coverId','locked','catBudgets','destination','monthLabel','coverPreset'],
   Members:['tripId','memberId','userId','displayName','isFamily','headId','joinedAt','isKid','kidShare','lat','lng','locAt'],
   Expenses:['expenseId','tripId','description','category','amount','currency','paidBy','splitType','splitJSON','receiptId','addedBy','addedAt','editedBy','editedAt','deleted','deletedBy','deletedAt','payersJSON','note','spentOn','ticketJSON','stayJSON','clientId'],
-  Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt','clientId'],
+  Payments:['paymentId','tripId','fromId','toId','amount','method','recordedBy','recordedAt','clientId','status','confirmedBy','confirmedAt'],
   Activity:['id','tripId','actorId','actorName','action','detail','at']
 };
 
@@ -584,9 +584,38 @@ function api_recordPayment(p){
   var me=userByToken_(p.token); var trip=getTrip_(p.tripId); requireUnlocked_(trip);
   if(p.clientId){ var pdup=readAll_('Payments').filter(function(x){return x.tripId===trip.tripId && String(x.clientId)===String(p.clientId);})[0]; if(pdup) return getTripData_(trip.tripId,me); }
   appendRow_('Payments',{paymentId:'p-'+Utilities.getUuid().slice(0,8),tripId:trip.tripId,fromId:p.fromId,toId:p.toId,
-    amount:Number(p.amount)||0,method:p.method||'cash',recordedBy:me.userId,recordedAt:now_(),clientId:p.clientId||''});
-  logAct_(trip.tripId,me,'payment','Recorded payment '+fmtMoney_(p.amount,trip.currency));
+    amount:Number(p.amount)||0,method:p.method||'cash',recordedBy:me.userId,recordedAt:now_(),clientId:p.clientId||'',status:'pending',confirmedBy:'',confirmedAt:''});
+  logAct_(trip.tripId,me,'payment','Marked a payment as sent '+fmtMoney_(p.amount,trip.currency)+' (awaiting confirmation)');
   backup_(); return getTripData_(trip.tripId,me);
+}
+// Receiver (or their head / an admin) confirms they actually received the money → payment settles.
+function api_confirmPayment(p){
+  var me=userByToken_(p.token);
+  var pay=readAll_('Payments').filter(function(x){return x.paymentId===p.paymentId;})[0]; if(!pay) throw 'Payment not found.';
+  var trip=getTrip_(pay.tripId); requireUnlocked_(trip);
+  if(!canConfirmPayment_(pay,me)) throw 'Only the person who should receive the money can confirm it.';
+  updateWhere_('Payments','paymentId',p.paymentId,{status:'confirmed',confirmedBy:me.userId,confirmedAt:now_()});
+  logAct_(pay.tripId,me,'payment','Confirmed receiving '+fmtMoney_(Number(pay.amount),trip.currency));
+  backup_(); return getTripData_(pay.tripId,me);
+}
+// Receiver says "not yet", or the payer takes it back → remove the pending payment.
+function api_cancelPayment(p){
+  var me=userByToken_(p.token);
+  var pay=readAll_('Payments').filter(function(x){return x.paymentId===p.paymentId;})[0]; if(!pay) throw 'Payment not found.';
+  var trip=getTrip_(pay.tripId); requireUnlocked_(trip);
+  var mine=(pay.recordedBy===me.userId)||canConfirmPayment_(pay,me)||isAdmin_(me);
+  if(!mine) throw 'You cannot cancel this payment.';
+  deleteWhere_('Payments','paymentId',p.paymentId);
+  logAct_(pay.tripId,me,'payment','Cancelled a pending payment '+fmtMoney_(Number(pay.amount),trip.currency));
+  backup_(); return getTripData_(pay.tripId,me);
+}
+function canConfirmPayment_(pay,me){
+  if(isAdmin_(me)) return true;
+  var mem=readAll_('Members').filter(function(m){return m.tripId===pay.tripId;});
+  var toM=mem.filter(function(m){return m.memberId===pay.toId;})[0]; if(!toM) return false;
+  if(toM.userId && toM.userId===me.userId) return true;           // receiver themself
+  if(toM.headId){ var head=mem.filter(function(m){return m.memberId===toM.headId;})[0]; if(head && head.userId===me.userId) return true; } // their head
+  return false;
 }
 
 /* ============================================================
@@ -641,8 +670,9 @@ function getTripData_(tripId,me){
       ticket:ticket,stay:stay,receiptId:e.receiptId,addedBy:e.addedBy,addedAt:dStr_(e.addedAt),editedBy:e.editedBy,editedAt:dStr_(e.editedAt),
       deleted:!!e.deleted,deletedBy:e.deletedBy,deletedAt:dStr_(e.deletedAt)};
   }).sort(function(a,b){return a.addedAt<b.addedAt?1:-1;});
+  var nmById={}; mem.forEach(function(m){nmById[m.memberId]=m.name;});
   var payments=readAll_('Payments').filter(function(x){return x.tripId===tripId;}).map(function(x){
-    return {paymentId:x.paymentId,fromId:x.fromId,toId:x.toId,amount:Number(x.amount),method:x.method,recordedBy:x.recordedBy,recordedAt:dStr_(x.recordedAt)}; });
+    return {paymentId:x.paymentId,fromId:x.fromId,toId:x.toId,fromName:nmById[x.fromId]||'',toName:nmById[x.toId]||'',amount:Number(x.amount),method:x.method,recordedBy:x.recordedBy,recordedAt:dStr_(x.recordedAt),status:String(x.status||'confirmed')}; });
   var calc=computeBalances_(mem,expenses,payments);
   var cats=[]; try{cats=JSON.parse(trip.cats||'[]');}catch(x){cats=DEFAULT_CATS;}
   var catBudgets={}; try{catBudgets=JSON.parse(trip.catBudgets||'{}');}catch(x){}
@@ -677,6 +707,7 @@ function shareMap_(e,memById){
 }
 
 function computeBalances_(members,expenses,payments){
+  payments=(payments||[]).filter(function(p){return String(p.status||'confirmed')!=='pending';}); // pending payments don't settle until the receiver confirms
   var memById={},headOf={},nameOf={},paid={},owe={},iOwe={},iPaid={},pair={};
   members.forEach(function(m){ memById[m.memberId]=m; headOf[m.memberId]=m.headId?m.headId:m.memberId; nameOf[m.memberId]=m.name; iOwe[m.memberId]=0; iPaid[m.memberId]=0; if(!m.headId){paid[m.memberId]=0;owe[m.memberId]=0;} });
   var byCategory={},byDay={},total=0;

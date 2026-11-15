@@ -243,6 +243,7 @@ document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t
 var CATICON={Food:'🍽️',Travel:'🚕','Train ticket':'🚆','Flight ticket':'✈️',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 /* Changelog — newest first. New features bump major (x.0.0); fixes/small changes bump minor/patch. */
 var CHANGELOG=[
+  {v:'7.0.0',d:'2026-11-15',notes:['Tap any person in the spending breakdown to see every expense they were part of — open or edit each one right there','Sort the spending breakdown: family-wise, most/least spent, most expenses, or name A–Z']},
   {v:'6.0.0',d:'2026-11-14',notes:['Sounds — a soft tap when you add an expense, a confirm tone on “Mark as paid”, and a success chime when a payment is confirmed','Turn sounds on or off anytime from Account','Balance card now turns fully red when you owe money']},
   {v:'5.0.0',d:'2026-11-14',notes:['Contact us — send a feature request, bug report or feedback right from the app','Privacy page — exactly what is stored, why, and who can see it','Delete my account & data option','Settle-up now asks you to confirm twice before recording a payment']},
   {v:'4.0.0',d:'2026-11-13',notes:['Train & Flight tickets are now separate categories','Add ticket now asks Train or Flight — Flight has a full form; Train is manual with optional PDF attach','Tickets now live only in the Tickets tab (hidden from Recent & All expenses, still counted in totals)','People screen redesigned — tap a person for options (Pay under / Who pays / kid)','Admins can permanently delete a removed expense']},
@@ -1003,20 +1004,39 @@ function openSettle(){
   if(hasDirect)html+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:13px 16px;margin-bottom:12px"><div style="flex:1"><b style="font-size:14px">Simplify debts</b><div class="muted" id="simpSub" style="font-size:12px">'+(simplify?'Fewest payments (combined)':'Direct — pay who you owe')+'</div></div><label class="switch"><input type="checkbox" id="simpTog"'+(simplify?' checked':'')+'><span class="track"></span></label></div>';
   html+='<div id="settleList" style="transition:opacity .18s">'+settleRowsHtml(list)+'</div>';
   var stats=d.memberStats||[];
+  var _bdCnt={};
+  (d.expenses||[]).forEach(function(e){if(e.deleted)return;var _sh=shareOf(e);Object.keys(_sh).forEach(function(k){if((Number(_sh[k])||0)>0.005)_bdCnt[k]=(_bdCnt[k]||0)+1;});});
+  function buildBreakdown(sort){
+    if(sort==='family'){
+      var groups={};
+      stats.forEach(function(s){var key=s.headId||s.memberId;if(!groups[key])groups[key]={head:key,total:0,members:[]};groups[key].total+=s.cost;groups[key].members.push(s);});
+      var arr=Object.keys(groups).map(function(k){return groups[k];}).sort(function(a,b){return b.total-a.total;});
+      var o='';
+      arr.forEach(function(g){
+        if(g.members.length>1){
+          o+='<div class="card" style="padding:12px 16px;margin-bottom:8px"><div style="display:flex;align-items:center"><b>👪 '+esc(memById[g.head]?memById[g.head].name:'')+'\'s family</b><span style="margin-left:auto;font-weight:700">'+money(g.total,cur)+'</span></div>';
+          g.members.sort(function(a,b){return b.cost-a.cost;}).forEach(function(s){o+='<div class="meta shrow" data-sh="'+esc(s.memberId)+'" style="display:flex;align-items:center;margin-top:6px;cursor:pointer"><span>'+esc(s.name)+(s.memberId===g.head?' (head)':'')+'</span><span style="margin-left:auto">'+money(s.cost,cur)+'</span><span style="color:var(--sub);margin-left:6px">›</span></div>';});
+          o+='</div>';
+        } else {
+          var s0=g.members[0];
+          o+='<div class="card shrow" data-sh="'+esc(s0.memberId)+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;cursor:pointer"><b>'+esc(s0.name)+'</b><span style="margin-left:auto;font-weight:700">'+money(s0.cost,cur)+'</span><span style="color:var(--sub);margin-left:8px">›</span></div>';
+        }
+      });
+      return o;
+    }
+    var flat=stats.slice();
+    if(sort==='amt_lo')flat.sort(function(a,b){return a.cost-b.cost;});
+    else if(sort==='count')flat.sort(function(a,b){return (_bdCnt[b.memberId]||0)-(_bdCnt[a.memberId]||0)||b.cost-a.cost;});
+    else if(sort==='name')flat.sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+    else flat.sort(function(a,b){return b.cost-a.cost;});
+    var o='';
+    flat.forEach(function(s){var c=_bdCnt[s.memberId]||0;o+='<div class="card shrow" data-sh="'+esc(s.memberId)+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;cursor:pointer"><div style="flex:1;min-width:0"><b>'+esc(s.name)+'</b><div class="muted" style="font-size:12px">'+c+' expense'+(c===1?'':'s')+'</div></div><span style="font-weight:700">'+money(s.cost,cur)+'</span><span style="color:var(--sub);margin-left:8px">›</span></div>';});
+    return o;
+  }
   if(stats.length){
-    var groups={};
-    stats.forEach(function(s){var key=s.headId||s.memberId;if(!groups[key])groups[key]={head:key,total:0,members:[]};groups[key].total+=s.cost;groups[key].members.push(s);});
-    var arr=Object.keys(groups).map(function(k){return groups[k];}).sort(function(a,b){return b.total-a.total;});
-    html+='<h2 class="sec" style="margin-top:20px">Spending breakdown</h2>';
-    arr.forEach(function(g){
-      if(g.members.length>1){
-        html+='<div class="card" style="padding:12px 16px;margin-bottom:8px"><div style="display:flex;align-items:center"><b>👪 '+esc(memById[g.head]?memById[g.head].name:'')+'\'s family</b><span style="margin-left:auto;font-weight:700">'+money(g.total,cur)+'</span></div>';
-        g.members.sort(function(a,b){return b.cost-a.cost;}).forEach(function(s){html+='<div class="meta" style="display:flex;margin-top:6px"><span>'+esc(s.name)+(s.memberId===g.head?' (head)':'')+'</span><span style="margin-left:auto">'+money(s.cost,cur)+'</span></div>';});
-        html+='</div>';
-      } else {
-        html+='<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center"><b>'+esc(g.members[0].name)+'</b><span style="margin-left:auto;font-weight:700">'+money(g.members[0].cost,cur)+'</span></div>';
-      }
-    });
+    var bdSort=cacheGet('tet_bdsort_'+d.trip.tripId)||'family';
+    html+='<div style="display:flex;align-items:center;margin:20px 2px 8px"><h2 class="sec" style="margin:0;flex:1">Spending breakdown</h2><select id="bdSort" style="width:auto;padding:6px 26px 6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px;color:var(--ink)"><option value="family">Family-wise</option><option value="amt_hi">Most spent</option><option value="amt_lo">Least spent</option><option value="count">Most expenses</option><option value="name">Name A–Z</option></select></div>';
+    html+='<div id="bdList">'+buildBreakdown(bdSort)+'</div>';
   }
   var paidList=stats.filter(function(s){return (s.paid||0)>0.5;}).sort(function(a,b){return b.paid-a.paid;});
   if(paidList.length){
@@ -1054,6 +1074,13 @@ function openSettle(){
     Array.prototype.forEach.call(document.querySelectorAll('.jebrow'),function(r){
       r.onclick=function(){openPaidDetail(r.getAttribute('data-jeb'));};
     });
+    var _bdSel=$('#bdSort');
+    if(_bdSel){
+      _bdSel.value=cacheGet('tet_bdsort_'+d.trip.tripId)||'family';
+      var wireSh=function(){Array.prototype.forEach.call(document.querySelectorAll('.shrow'),function(r){r.onclick=function(){openShareDetail(r.getAttribute('data-sh'));};});};
+      wireSh();
+      _bdSel.onchange=function(){var v=this.value;cacheSet('tet_bdsort_'+d.trip.tripId,v);var bx=$('#bdList');if(bx){bx.innerHTML=buildBreakdown(v);wireSh();}};
+    }
   });
 }
 
@@ -1081,6 +1108,34 @@ function openPaidDetail(mid){
   html+='<button class="btn out sm" id="backToSettle" style="margin-top:14px">‹ Back to settle up</button>';
   sheetModal('Paid by '+name,html,function(){
     $('#backToSettle').onclick=function(){openSettle();};
+    Array.prototype.forEach.call(document.querySelectorAll('.pdrow'),function(el){
+      el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e);};
+    });
+  });
+}
+function openShareDetail(mid){
+  var d=S.data,cur=d.trip.currency;
+  var mem=(d.memberStats||[]).filter(function(s){return s.memberId===mid;})[0];
+  var name=mem?mem.name:'';
+  if(!name){var mm=(d.members||[]).filter(function(x){return x.memberId===mid;})[0];name=mm?mm.name:'';}
+  var rows=[];var total=0;
+  (d.expenses||[]).forEach(function(e){
+    if(e.deleted)return;
+    var sh=shareOf(e);var amt=Number(sh[mid])||0;
+    if(amt>0.005){rows.push({e:e,amt:amt});total+=amt;}
+  });
+  rows.sort(function(a,b){return b.amt-a.amt;});
+  var html='';
+  if(!rows.length){html='<div class="muted" style="padding:20px 0;text-align:center">No expenses</div>';}
+  else{
+    rows.forEach(function(r,i){
+      html+='<div class="card pdrow" data-pdi="'+i+'" style="padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer"><span style="font-size:20px">'+catIcon(r.e.category)+'</span><div style="flex:1;min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.e.description||r.e.category)+'</div><div class="muted" style="font-size:12px">'+sdate(r.e.spentOn)+'</div></div><span style="font-weight:700">'+money(r.amt,cur)+'</span><span style="color:var(--sub);margin-left:6px">›</span></div>';
+    });
+    html+='<div class="card" style="padding:12px 16px;margin-top:4px;display:flex;align-items:center;background:var(--mint);color:#fff"><b>Total share</b><span style="margin-left:auto;font-weight:800">'+money(total,cur)+'</span></div>';
+  }
+  html+='<button class="btn out sm" id="backToSettle3" style="margin-top:14px">‹ Back to settle up</button>';
+  sheetModal(name+'\'s expenses',html,function(){
+    $('#backToSettle3').onclick=function(){openSettle();};
     Array.prototype.forEach.call(document.querySelectorAll('.pdrow'),function(el){
       el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e);};
     });

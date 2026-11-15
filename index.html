@@ -243,6 +243,7 @@ document.addEventListener('blur',function(e){var t=e.target;if(t&&t.classList&&t
 var CATICON={Food:'🍽️',Travel:'🚕','Train ticket':'🚆','Flight ticket':'✈️',Stay:'🏨',Shopping:'🛍️','Entry tickets':'🎟️',Tickets:'🎟️',Fuel:'⛽',Other:'📦',Activities:'🎢',Drinks:'🥤'};
 /* Changelog — newest first. New features bump major (x.0.0); fixes/small changes bump minor/patch. */
 var CHANGELOG=[
+  {v:'7.0.1',d:'2026-11-15',notes:['Fix: editing an expense opened from Settle → a person now returns to that person’s list, not the dashboard']},
   {v:'7.0.0',d:'2026-11-15',notes:['Tap any person in the spending breakdown to see every expense they were part of — open or edit each one right there','Sort the spending breakdown: family-wise, most/least spent, most expenses, or name A–Z']},
   {v:'6.0.0',d:'2026-11-14',notes:['Sounds — a soft tap when you add an expense, a confirm tone on “Mark as paid”, and a success chime when a payment is confirmed','Turn sounds on or off anytime from Account','Balance card now turns fully red when you owe money']},
   {v:'5.0.0',d:'2026-11-14',notes:['Contact us — send a feature request, bug report or feedback right from the app','Privacy page — exactly what is stored, why, and who can see it','Delete my account & data option','Settle-up now asks you to confirm twice before recording a payment']},
@@ -723,7 +724,7 @@ function expRow(e){
 /* ===========================================================
  *  ADD / EDIT EXPENSE
  * ========================================================= */
-function openAddExpense(existing){
+function openAddExpense(existing,back){
   var d=S.data,t=d.trip,cur=t.currency,members=d.members,myMember=d.me.memberId,ex=existing||null;
   var split=ex?Object.assign({},ex.split):{};
   var splitType=ex?ex.splitType:'equal';
@@ -833,7 +834,7 @@ function openAddExpense(existing){
     $('#multiPay').onchange=function(){$('#ePaid').parentNode.querySelector('#ePaid').style.opacity=this.checked?'0.4':'1';renderPayers();};
     renderPayers();
 
-    $('#saveExp').onclick=function(){saveExpense(ex,state,pstate,members,cur);};
+    $('#saveExp').onclick=function(){saveExpense(ex,state,pstate,members,cur,back);};
     if(ex&&$('#delExp'))$('#delExp').onclick=function(){if(!confirm('Delete this expense? Everyone in it will see it crossed out.'))return;
       var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
       if(le){le.deleted=true;le.deletedBy=S.user.userId;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
@@ -860,7 +861,7 @@ function buildPayers(pstate,members,amt,singlePayer){
   else{var s2=0;chosen.forEach(function(m){var v=Number(pstate.amt[m.memberId])||0;payers[m.memberId]=v;s2+=v;});if(Math.abs(s2-amt)>0.5)return 'Payer amounts must add up to '+amt+'.';}
   return payers;
 }
-function saveExpense(ex,state,pstate,members,cur){
+function saveExpense(ex,state,pstate,members,cur,back){
   var desc=$('#eDesc').value.trim(),amt=Number($('#eAmt').value)||0,cat=$('#eCat').value;if(cat==='__new')cat='Other';
   var singlePayer=$('#ePaid').value,note=$('#eNote').value.trim(),spentOn=$('#eDate').value||todayStr(),spentTime=($('#eTime')?$('#eTime').value:'')||nowTime();
   if(!desc)return toast('Enter a description');if(amt<=0)return toast('Enter an amount');
@@ -874,7 +875,7 @@ function saveExpense(ex,state,pstate,members,cur){
       payload.expenseId=ex.expenseId;
       var le=S.data.expenses.filter(function(x){return x.expenseId===ex.expenseId;})[0];
       if(le){le.description=desc;le.category=cat;le.amount=amt;le.splitType=sp.type;le.split=sp.split;le.payers=payers;le.note=note;le.spentOn=spentOn;le.spentTime=spentTime;le.stay=stay;le.editedBy=S.user.userId;le.editedAt=payload.clientTime;cacheSet('tet_trip_'+S.trip.tripId,S.data);}
-      closeModal();openExpenseDetail(le||ex);toast('Saved');
+      closeModal();openExpenseDetail(le||ex,back);toast('Saved');
       bgCall('api_editExpense',payload);
     }
     else{
@@ -892,7 +893,7 @@ function optimisticAdd(payload){
 }
 function setData(d){if(!d||!d.trip){toast('Save failed — please retry');return;}S.trip=d.trip;S.data=d;cacheSet('tet_trip_'+d.trip.tripId,d);}
 
-function openExpenseDetail(e){
+function openExpenseDetail(e,back){
   var d=S.data,cur=d.trip.currency;
   var sh=shareOf(e),shareLines='';Object.keys(sh).forEach(function(mid){shareLines+='<div class="settle"><span class="nm">'+esc(memName(mid))+'</span><span class="mo">'+money(sh[mid],cur)+'</span></div>';});
   var payLines='';Object.keys(e.payers||{}).forEach(function(pid){payLines+='<div class="settle"><span class="nm">'+esc(memName(pid))+'</span><span class="mo">'+money(e.payers[pid],cur)+'</span></div>';});
@@ -914,8 +915,9 @@ function openExpenseDetail(e){
   else if(d.trip.locked)html+='<div class="lockbanner">Trip is locked.</div>';
   else html+='<div class="banner">Only people in this expense can edit it.</div>';
   sheetModal('Expense',html,function(){
+    if(back)$('#closeSheet').onclick=back;
     if(e.receiptId&&$('#rcpt'))$('#rcpt').src='/img?id='+encodeURIComponent(e.receiptId);
-    if($('#editBtn'))$('#editBtn').onclick=function(){closeModal();openAddExpense(e);};
+    if($('#editBtn'))$('#editBtn').onclick=function(){closeModal();openAddExpense(e,back);};
     if($('#restoreBtn'))$('#restoreBtn').onclick=function(){loading(true);call('api_restoreExpense',{token:S.token,expenseId:e.expenseId}).then(function(dd){loading(false);closeModal();setData(dd);renderDashboard();toast('Restored');}).catch(function(er){loading(false);toast(er);});};
     if($('#purgeBtn'))$('#purgeBtn').onclick=function(){if(!confirm('Permanently remove this expense? This cannot be undone.'))return;
       var le=S.data.expenses.filter(function(x){return x.expenseId===e.expenseId;})[0];
@@ -1109,7 +1111,7 @@ function openPaidDetail(mid){
   sheetModal('Paid by '+name,html,function(){
     $('#backToSettle').onclick=function(){openSettle();};
     Array.prototype.forEach.call(document.querySelectorAll('.pdrow'),function(el){
-      el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e);};
+      el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e,function(){openPaidDetail(mid);});};
     });
   });
 }
@@ -1137,7 +1139,7 @@ function openShareDetail(mid){
   sheetModal(name+'\'s expenses',html,function(){
     $('#backToSettle3').onclick=function(){openSettle();};
     Array.prototype.forEach.call(document.querySelectorAll('.pdrow'),function(el){
-      el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e);};
+      el.onclick=function(){var i=+el.getAttribute('data-pdi');if(rows[i])openExpenseDetail(rows[i].e,function(){openShareDetail(mid);});};
     });
   });
 }

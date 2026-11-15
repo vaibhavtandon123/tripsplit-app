@@ -466,8 +466,9 @@ function api_purgeExpense(p){
   var e=readAll_('Expenses').filter(function(x){return x.expenseId===p.expenseId;})[0]; if(!e) throw 'Expense not found.';
   var trip=getTrip_(e.tripId); requireUnlocked_(trip);
   if(String(e.deleted)==='' ) throw 'Delete it first, then remove permanently.';
-  deleteWhere_('Expenses','expenseId',e.expenseId);
-  logAct_(e.tripId,me,'purge','Permanently removed "'+e.description+'"');
+  // Never physically delete the row — keep it in the sheet forever as a record; just mark it purged so the app hides it everywhere.
+  updateWhere_('Expenses','expenseId',e.expenseId,{deleted:'purged',deletedBy:me.userId,deletedAt:now_()});
+  logAct_(e.tripId,me,'purge','Permanently removed "'+e.description+'" (kept in sheet)');
   backup_(); return getTripData_(e.tripId,me);
 }
 function requireInExpense_(e,me){
@@ -670,7 +671,7 @@ function getTripData_(tripId,me){
     return {memberId:m.memberId,userId:m.userId,name:m.displayName,isFamily:!!m.isFamily,headId:m.headId,
       isKid:!!m.isKid,kidShare:m.kidShare||'',photoId:u?u.photoId:'',mobile:u?u.mobile:'',email:u?u.email:'',
       lat:(m.lat===''||m.lat==null)?null:Number(m.lat),lng:(m.lng===''||m.lng==null)?null:Number(m.lng),locAt:dStr_(m.locAt)}; });
-  var expenses=readAll_('Expenses').filter(function(e){return e.tripId===tripId;}).map(function(e){
+  var expenses=readAll_('Expenses').filter(function(e){return e.tripId===tripId && String(e.deleted)!=='purged';}).map(function(e){
     var split={}; try{split=JSON.parse(e.splitJSON||'{}');}catch(x){}
     var payers={}; try{payers=JSON.parse(e.payersJSON||'{}');}catch(x){}
     if(!Object.keys(payers).length && e.paidBy) payers[e.paidBy]=Number(e.amount);
